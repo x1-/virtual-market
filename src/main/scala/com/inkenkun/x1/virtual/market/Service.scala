@@ -104,7 +104,7 @@ trait Service extends HttpService {
     } ~
     path( "buy" ) {
       get {
-        parameters( 'code, 'how ? "market", 'number.as[Int] ? 100, 'expiration.?, 'account ? "cash" ) { ( code, how, number, expiration, account ) =>
+        parameters( 'id, 'code, 'how ? "market", 'number.as[Int] ? 100, 'expiration.?, 'account ? "cash" ) { ( id, code, how, number, expiration, account ) =>
           respondWithMediaType( `application/json` ) {
             complete( s"" )
           }
@@ -113,7 +113,7 @@ trait Service extends HttpService {
     } ~
     path( "sell" ) {
       get {
-        parameters( 'code, 'how ? "market", 'number.as[Int] ? 100, 'expiration.? ) { ( code, how, number, expiration ) =>
+        parameters( 'id, 'code, 'how ? "market", 'number.as[Int] ? 100, 'expiration.? ) { ( id, code, how, number, expiration ) =>
           respondWithMediaType( `application/json` ) {
             complete( s"" )
           }
