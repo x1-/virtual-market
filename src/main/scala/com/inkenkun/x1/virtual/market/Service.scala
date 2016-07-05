@@ -77,12 +77,7 @@ trait Service extends HttpService {
     path( "user" / "info" ) {
       get {
         parameters( 'id ) { id =>
-          val account = Account(
-            userId          = "1",
-            userName        = "てすと ゆーざー",
-            balance         = Some( BigDecimal( 3000000 ) ),
-            marginRemaining = Some( BigDecimal( 3000000 * 3 ) )
-          )
+          val account = Accounts.retrieve( id )
           respondWithMediaType( `application/json` ) {
             complete( account.toJson )
           }
