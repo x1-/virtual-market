@@ -70,7 +70,15 @@ trait Service extends HttpService {
     path( "user" / "load" ) {
       get {
         respondWithMediaType( `application/json` ) {
-          complete( Accounts.initialUsers.toJson )
+          AccountsManager ! "load"
+          complete(
+            <html>
+              <head></head>
+              <body>
+                <p>Status: loading</p>
+              </body>
+            </html>
+          )
         }
       }
     } ~
@@ -104,7 +112,7 @@ trait Service extends HttpService {
     } ~
     path( "buy" ) {
       get {
-        parameters( 'id, 'code, 'how ? "market", 'number.as[Int] ? 100, 'expiration.?, 'account ? "cash" ) { ( id, code, how, number, expiration, account ) =>
+        parameters( 'id, 'code, 'how ? "market", 'sol ? "long", 'number.as[Int] ? 100, 'expiration.?, 'account ? "cash" ) { ( id, code, how, sol, number, expiration, account ) =>
           respondWithMediaType( `application/json` ) {
             complete( s"" )
           }
@@ -113,7 +121,7 @@ trait Service extends HttpService {
     } ~
     path( "sell" ) {
       get {
-        parameters( 'id, 'code, 'how ? "market", 'number.as[Int] ? 100, 'expiration.? ) { ( id, code, how, number, expiration ) =>
+        parameters( 'id, 'code, 'how ? "market", 'sol ? "long", 'number.as[Int] ? 100, 'expiration.? ) { ( id, code, how, sol, number, expiration ) =>
           respondWithMediaType( `application/json` ) {
             complete( s"" )
           }

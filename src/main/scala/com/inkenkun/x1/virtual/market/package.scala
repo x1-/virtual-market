@@ -6,6 +6,7 @@ import org.joda.time.{DateTime, Hours}
 import org.joda.time.format.DateTimeFormat
 
 import com.inkenkun.x1.virtual.market.stock.Candles
+import com.inkenkun.x1.virtual.market.user.Accounts
 
 package object market {
 
@@ -24,7 +25,8 @@ package object market {
   val timestampFormat = DateTimeFormat.forPattern( "yyyy-MM-dd HH:mm:ss" )
   val baseTime        = timestampFormat.parseDateTime( config.getString( "start-time" ) )
 
-  val CandleFetcher = system.actorOf( Props[Candles.FetchActor], "CandlesFetcher" )
+  val CandleFetcher   = system.actorOf( Props[Candles.FetchActor], "CandlesFetcher" )
+  val AccountsManager = system.actorOf( Props[Accounts.ManagerActor], "AccountsManager" )
 
   def marketTime( baseTime: DateTime, currentMills: Long )( implicit marketStart: DateTime ): DateTime = {
     val now = new DateTime( currentMills )

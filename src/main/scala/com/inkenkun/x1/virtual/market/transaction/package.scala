@@ -14,8 +14,8 @@ package object transaction {
     }
   }
 
-  sealed abstract class Balance( val value: String )
-  object Balance {
+  sealed abstract class Account( val value: String )
+  object Account {
     case object credit extends How( "credit" )
     case object cash   extends How( "cash" )
 
@@ -26,4 +26,15 @@ package object transaction {
     }
   }
 
+  sealed abstract class SoL( val value: String )
+  object SoL {
+    case object short extends How( "short" )
+    case object long   extends How( "long" )
+
+    def apply( value: Option[String] ): SoL = value match {
+      case Some( short.value ) => short
+      case Some( long.value )  => long
+      case _ => long
+    }
+  }
 }
