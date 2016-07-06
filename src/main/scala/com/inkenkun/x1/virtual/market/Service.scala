@@ -6,7 +6,8 @@ import spray.routing._
 import spray.routing.RejectionHandler.Default
 
 import com.inkenkun.x1.virtual.market.stock._
-import com.inkenkun.x1.virtual.market.user.{Account, Accounts}
+import com.inkenkun.x1.virtual.market.transaction._
+import com.inkenkun.x1.virtual.market.user.Accounts
 
 class ServiceActor extends Actor with Service {
 
@@ -113,8 +114,23 @@ trait Service extends HttpService {
     path( "buy" ) {
       get {
         parameters( 'id, 'code, 'how ? "market", 'sol ? "long", 'number.as[Int] ? 100, 'expiration.?, 'account ? "cash" ) { ( id, code, how, sol, number, expiration, account ) =>
+          val now       = marketTime( baseTime, System.currentTimeMillis )( marketStart )
+          val howType   = How( how )
+          val solTypw   = SoL( sol )
+          val accType   = Account( account )
+          val exprDate  = expiration map timestampFormat.parseDateTime _ getOrElse now
+
+
+          val message = if ( solTypw == SoL.short && accType == Account.cash ) {
+            "Error: 空売りは信用取引でしかできません。"
+          } else if ( exprDate.isBefore( now ) ) {
+            s"Error: 有効期限が過ぎています。 現在時刻:${ now.toString( timestampFormat ) }"
+          } else {
+            "Success: processing"
+          }
           respondWithMediaType( `application/json` ) {
-            complete( s"" )
+            complete(
+              s"""{"message":"$message","jobId":""}""" )
           }
         }
       }

@@ -27,9 +27,8 @@ case class Holding (
 
 object Accounts{
 
+  import com.inkenkun.x1.virtual.market.userId
   import com.inkenkun.x1.virtual.market.implicits._
-
-  type userId = String
 
   val users = Map.empty[userId, Account]
 

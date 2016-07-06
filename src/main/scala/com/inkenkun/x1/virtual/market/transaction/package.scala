@@ -7,9 +7,9 @@ package object transaction {
     case object market extends How( "market" )
     case object limit  extends How( "limit" )
 
-    def apply( value: Option[String] ): How = value match {
-      case Some( market.value ) => market
-      case Some( limit.value )  => limit
+    def apply( value: String ): How = value match {
+      case market.value => market
+      case limit.value  => limit
       case _ => market
     }
   }
@@ -19,21 +19,21 @@ package object transaction {
     case object credit extends How( "credit" )
     case object cash   extends How( "cash" )
 
-    def apply( value: Option[String] ): How = value match {
-      case Some( credit.value ) => credit
-      case Some( cash.value )  => cash
-      case _ => cash
+    def apply( value: String ): How = value match {
+      case credit.value => credit
+      case cash.value   => cash
+      case _  => cash
     }
   }
 
   sealed abstract class SoL( val value: String )
   object SoL {
-    case object short extends How( "short" )
-    case object long   extends How( "long" )
+    case object short extends SoL( "short" )
+    case object long  extends SoL( "long" )
 
-    def apply( value: Option[String] ): SoL = value match {
-      case Some( short.value ) => short
-      case Some( long.value )  => long
+    def apply( value: String ): SoL = value match {
+      case short.value => short
+      case long.value  => long
       case _ => long
     }
   }

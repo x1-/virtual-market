@@ -15,6 +15,7 @@ package object market {
   type market = String
   type code   = String
   type tick   = String
+  type userId = String
 
   val config = ConfigFactory.load.getConfig( "market" )
 
@@ -40,4 +41,25 @@ package object market {
       .withMinuteOfHour( now.getMinuteOfHour )
       .withSecondOfMinute( now.getSecondOfMinute )
   }
+
+  def adjustDay( targetDate: DateTime )( implicit marketStart: DateTime ): DateTime = {
+
+    val newTime = targetDate
+
+    targetDate match {
+      case x if targetDate.getHourOfDay > 14 =>
+        newTime
+          .withHourOfDay( 14 )
+          .withMinuteOfHour( 59 )
+          .withSecondOfMinute( 59 )
+      case x if targetDate.getHourOfDay < 9 =>
+        newTime
+          .minusDays( 1 )
+          .withHourOfDay( 14 )
+          .withMinuteOfHour( 59 )
+          .withSecondOfMinute( 59 )
+      case _ => newTime
+    }
+  }
+
 }

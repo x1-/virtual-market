@@ -7,12 +7,15 @@
 
 ### buy
 
-株を購入します。
+株を購入します。(ロングの場合)
+solパラメータでショートを指定すると空売りになります。
 
 #### parameters 
 
+* ユーザID( `id` )
 * 銘柄コード( `code` )
 * 成行／指値( `how`: `market`, `limit` )
+* ロング／ショート( `sol`: `long`, `short` )
 * 株数( `number` )
 * 指値の場合の有効期限( `expiration`: `YYYY-mm-dd HH:MM` )
 * 通常／信用( `account`: `credit`, `cash` )
@@ -20,12 +23,15 @@
 
 ### sell
 
-株を売却します。
+株を売却します。(ロングの場合)
+solパラメータでショートを指定すると買い戻しになります。
 
 #### parameters 
 
+* ユーザID( `id` )
 * 銘柄コード( `code` )
 * 成行／指値( `how`: `market`, `limit` )
+* ロング／ショート( `sol`: `long`, `short` )
 * 株数( `number` )
 * 指値の場合の有効期限( `expiration`: `YYYY-mm-dd HH:MM` )
 を指定します。
