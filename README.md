@@ -14,11 +14,12 @@ solパラメータでショートを指定すると空売りになります。
 
 * ユーザID( `id` )
 * 銘柄コード( `code` )
-* 成行／指値( `how`: `market`, `limit` )
+* 通常／信用( `account`: `credit`, `cash` )
 * ロング／ショート( `sol`: `long`, `short` )
+* 成行／指値( `how`: `market`, `limit` )
+* 指値の場合の金額( `price` )
 * 株数( `number` )
 * 指値の場合の有効期限( `expiration`: `YYYY-mm-dd HH:MM` )
-* 通常／信用( `account`: `credit`, `cash` )
 を指定します。
 
 ### sell
@@ -30,8 +31,9 @@ solパラメータでショートを指定すると買い戻しになります�
 
 * ユーザID( `id` )
 * 銘柄コード( `code` )
-* 成行／指値( `how`: `market`, `limit` )
 * ロング／ショート( `sol`: `long`, `short` )
+* 成行／指値( `how`: `market`, `limit` )
+* 指値の場合の金額( `price` )
 * 株数( `number` )
 * 指値の場合の有効期限( `expiration`: `YYYY-mm-dd HH:MM` )
 を指定します。

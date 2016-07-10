@@ -155,6 +155,28 @@ object Candles {
   }
 
 
+  def latest( code: String, time: Date ): Option[Candle] = {
+    val m1 = latestByTick( code, Tick.m1, time )
+    val m5 = latestByTick( code, Tick.m5, time )
+    val d1 = latestByTick( code, Tick.d1, time )
+
+    latestByDefined( latestByDefined( m1, m5 ), d1 )
+  }
+  private def latestByTick( code: String, tick: Tick, now: Date ): Option[Candle] = {
+    val ticks = tick match {
+      case Tick.m1 => candles1m
+      case Tick.m5 => candles5m
+      case Tick.d1 => candles1d
+    }
+    ticks.get( code ) map ( cv => cv.filter( _.time.before( now ) ).maxBy( _.time.getTime ) )
+  }
+  private def latestByDefined( c1: Option[Candle], c2: Option[Candle] ): Option[Candle] = ( c1, c2 ) match {
+    case ( Some(x), Some(y) ) => Some( if ( x.time.after( y.time ) ) x else y )
+    case ( Some(x), None )    => Some( x )
+    case ( None, Some(y) )    => Some( y )
+    case ( None, None )       => None
+  }
+
   def retrieve( code: String, startDate: DateTime, endDate: DateTime, tick: Tick ): Vector[Candle] = {
 
     val start = startDate.getMillis

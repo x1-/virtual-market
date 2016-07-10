@@ -1,12 +1,11 @@
 package com.inkenkun.x1.virtual.market.user
 
 import java.util.Date
-import scala.collection.mutable.Map
+import scala.collection.mutable
 
 import akka.actor.{Actor, ActorLogging}
 
 import com.inkenkun.x1.virtual.market.redis
-
 
 case class Account(
   userId          : String = "",
@@ -14,7 +13,8 @@ case class Account(
   balance         : Option[BigDecimal] = None,
   availableCash   : Option[BigDecimal] = None,
   availableCredit : Option[BigDecimal] = None,
-  holdings        : List[Holding] = List.empty[Holding]
+  holdings        : List[Holding] = List.empty[Holding],
+  contracts       : List[Contract] = List.empty[Contract]
 )
 
 case class Holding (
@@ -30,7 +30,7 @@ object Accounts{
   import com.inkenkun.x1.virtual.market.userId
   import com.inkenkun.x1.virtual.market.implicits._
 
-  val users = Map.empty[userId, Account]
+  val users = mutable.Map.empty[userId, Account]
 
   lazy val initialUsers: List[Account] = {
     val maybeUsers = redis.Handler.get( "users" )
@@ -39,7 +39,11 @@ object Accounts{
 
   def retrieve( id: userId ): Account = users.getOrElse( id, Account() )
 
-  private def load(): Unit = {
+  private def update(): Unit = synchronized {
+
+  }
+
+  private def load(): Unit = synchronized {
     initialUsers.map { acc =>
       users += ( acc.userId -> acc )
     }

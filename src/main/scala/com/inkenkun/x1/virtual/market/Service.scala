@@ -7,7 +7,7 @@ import spray.routing.RejectionHandler.Default
 
 import com.inkenkun.x1.virtual.market.stock._
 import com.inkenkun.x1.virtual.market.transaction._
-import com.inkenkun.x1.virtual.market.user.Accounts
+import com.inkenkun.x1.virtual.market.user.{Accounts, Contract}
 
 class ServiceActor extends Actor with Service {
 
@@ -93,7 +93,7 @@ trait Service extends HttpService {
         }
       }
     } ~
-    path( "user" / "contract" / "notyet" ) {
+    path( "user" / "contract" / "yet" ) {
       get {
         parameters( 'id ) { id =>
           respondWithMediaType( `application/json` ) {
@@ -113,34 +113,65 @@ trait Service extends HttpService {
     } ~
     path( "buy" ) {
       get {
-        parameters( 'id, 'code, 'how ? "market", 'sol ? "long", 'number.as[Int] ? 100, 'expiration.?, 'account ? "cash" ) { ( id, code, how, sol, number, expiration, account ) =>
-          val now       = marketTime( baseTime, System.currentTimeMillis )( marketStart )
-          val howType   = How( how )
-          val solTypw   = SoL( sol )
-          val accType   = Account( account )
-          val exprDate  = expiration map timestampFormat.parseDateTime _ getOrElse now
+        parameters(
+           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
+          ( id, code, account, sol, how, price, number, expiration ) =>
+            val now       = marketTime( baseTime, System.currentTimeMillis )( marketStart )
 
+            val contract = Contract(
+              userId     = id,
+              code       = code,
+              account    = Account( account ),
+              sol        = SoL( sol ),
+              how        = How( how ),
+              price      = price,
+              number     = number,
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
+            )
+            val messages = contract.validate
+            val jobId    = Manager.jobId
 
-          val message = if ( solTypw == SoL.short && accType == Account.cash ) {
-            "Error: 空売りは信用取引でしかできません。"
-          } else if ( exprDate.isBefore( now ) ) {
-            s"Error: 有効期限が過ぎています。 現在時刻:${ now.toString( timestampFormat ) }"
-          } else {
-            "Success: processing"
-          }
-          respondWithMediaType( `application/json` ) {
-            complete(
-              s"""{"message":"$message","jobId":""}""" )
-          }
+            if ( messages.isEmpty ) {
+              TransactionManager ! ( "buy", contract )
+            }
+
+            respondWithMediaType( `application/json` ) {
+              complete(
+                s"""{"message":${messages.toJson},"jobId":"$jobId"}"""
+              )
+            }
         }
       }
     } ~
     path( "sell" ) {
       get {
-        parameters( 'id, 'code, 'how ? "market", 'sol ? "long", 'number.as[Int] ? 100, 'expiration.? ) { ( id, code, how, sol, number, expiration ) =>
-          respondWithMediaType( `application/json` ) {
-            complete( s"" )
-          }
+        parameters(
+           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
+          ( id, code, account, sol, how, price, number, expiration ) =>
+            val now       = marketTime( baseTime, System.currentTimeMillis )( marketStart )
+
+            val contract = Contract(
+              userId     = id,
+              code       = code,
+              account    = Account( account ),
+              sol        = SoL( sol ),
+              how        = How( how ),
+              price      = price,
+              number     = number,
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
+            )
+            val messages = contract.validate
+            val jobId    = Manager.jobId
+
+            if ( messages.isEmpty ) {
+              TransactionManager ! ( "sell", contract )
+            }
+
+            respondWithMediaType( `application/json` ) {
+              complete(
+                s"""{"message":${messages.toJson},"jobId":"$jobId"}"""
+              )
+            }
         }
       }
     } ~

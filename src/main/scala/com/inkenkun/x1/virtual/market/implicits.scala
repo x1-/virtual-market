@@ -60,4 +60,8 @@ object implicits {
     def fromJson(json: String): Vector[Stock] = JsonMethods.parse(json).extract[Vector[Stock]]
   }
 
+  implicit val ListStringSerializer = new JsonSerializer[List[String]] {
+    def toJson(a: List[String]): String = Serialization.write(a)
+    def fromJson(json: List): List[String] = JsonMethods.parse(json).extract[List[String]]
+  }
 }

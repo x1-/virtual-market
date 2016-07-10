@@ -2,7 +2,10 @@ package com.inkenkun.x1.virtual.market
 
 package object transaction {
 
-  sealed abstract class How( val value: String )
+  sealed abstract class How( val value: String ) {
+    def isMarket: Boolean = this == How.market
+    def isLimit : Boolean = this == How.limit
+  }
   object How {
     case object market extends How( "market" )
     case object limit  extends How( "limit" )
@@ -16,10 +19,10 @@ package object transaction {
 
   sealed abstract class Account( val value: String )
   object Account {
-    case object credit extends How( "credit" )
-    case object cash   extends How( "cash" )
+    case object credit extends Account( "credit" )
+    case object cash   extends Account( "cash" )
 
-    def apply( value: String ): How = value match {
+    def apply( value: String ): Account = value match {
       case credit.value => credit
       case cash.value   => cash
       case _  => cash
