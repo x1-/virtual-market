@@ -177,7 +177,7 @@ object Candles {
     case ( None, None )       => None
   }
 
-  def retrieve( code: String, startDate: DateTime, endDate: DateTime, tick: Tick ): Vector[Candle] = {
+  def searchByTick( code: String, startDate: DateTime, endDate: DateTime, tick: Tick ): Vector[Candle] = {
 
     val start = startDate.getMillis
     val end   = endDate.getMillis
@@ -196,6 +196,17 @@ object Candles {
       .sortBy( _.time )
   }
 
+  def isReached( code: String, price: BigDecimal, startDate: DateTime, endDate: DateTime ): Boolean = {
+    val all =
+         searchByTick( code, startDate, endDate, Tick.m1 )
+      ++ searchByTick( code, startDate, endDate, Tick.m5 )
+      ++ searchByTick( code, startDate, endDate, Tick.d1 )
+       + latest( code, startDate )
+    val highest = all.maxBy( _.high )
+    val lowest  = all.minBy( _.low )
+
+    lowest <= price && price <= highest
+  }
 
   class FetchActor extends Actor with ActorLogging {
     def receive = {

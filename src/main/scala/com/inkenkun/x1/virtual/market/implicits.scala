@@ -9,7 +9,7 @@ import akka.util.Timeout
 import org.json4s.{DateFormat, DefaultFormats}
 import org.json4s.jackson.{JsonMethods, Serialization}
 import com.inkenkun.x1.virtual.market.stock.{Candle, Stock}
-import com.inkenkun.x1.virtual.market.user.Account
+import com.inkenkun.x1.virtual.market.user.{Account, Contract}
 
 object implicits {
 
@@ -48,6 +48,10 @@ object implicits {
   implicit val AccountsSerializer = new JsonSerializer[List[Account]] {
     def toJson(a: List[Account]): String = Serialization.write(a)
     def fromJson(json: String): List[Account] = JsonMethods.parse(json).extract[List[Account]]
+  }
+  implicit val ContractSerializer = new JsonSerializer[Contract] {
+    def toJson(a: Contract): String = Serialization.write(a)
+    def fromJson(json: String): Contract = JsonMethods.parse(json).extract[Contract]
   }
 
   implicit val CandlesSerializer = new JsonSerializer[Vector[Candle]] {

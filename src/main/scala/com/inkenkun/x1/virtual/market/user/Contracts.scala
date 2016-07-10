@@ -5,7 +5,7 @@ import scala.collection.mutable.ListBuffer
 import org.joda.time.DateTime
 
 import com.inkenkun.x1.virtual.market.stock.Candles
-import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, How, SoL}
+import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, BoS, How, SoL}
 
 case class Contract (
   userId     : String,
@@ -16,15 +16,16 @@ case class Contract (
   price      : Double,
   number     : Int,
   expiration : DateTime,
-  status     : Contracts.Status = Contracts.Status.yet
+  bos        : BoS,
+  status     : Contracts.Status = Contracts.Status.notYet
 ) {
   import com.inkenkun.x1.virtual.market._
 
-  lazy val now = marketTime( baseTime, System.currentTimeMillis )( marketStart )
+  lazy val startTime = marketNow
 
   lazy val user  = Accounts.retrieve( userId )
-  lazy val stock = Candles.latest( code, now.plusMinutes( 3 ) )
-  lazy val unit = if ( how.isMarket ) stock.flatMap( s => Some( s.close ) ).getOrElse( BigDecimal(0) ) else BigDecimal( price )
+  lazy val stock = Candles.latest( code, startTime.plusMinutes( 3 ) )
+  lazy val unit  = if ( how.isMarket ) stock.flatMap( s => Some( s.high ) ).getOrElse( BigDecimal(0) ) else BigDecimal( price )
 
   def validate: List[String] = {
 
@@ -39,8 +40,8 @@ case class Contract (
     if ( number % 100 != 0 ) {
       errors += "単元は100株単位で指定してください。"
     }
-    if ( expiration.isBefore( now ) ) {
-      errors += s"有効期限が過ぎています。 現在時刻:${ now.toString( timestampFormat ) }"
+    if ( expiration.isBefore( startTime ) ) {
+      errors += s"有効期限が過ぎています。 現在時刻:${ startTime.toString( timestampFormat ) }"
     }
     errors.toList
   }
@@ -91,17 +92,20 @@ case class Contract (
 object Contracts {
 
   sealed abstract class Status( val value: String ) {
-    def beYet  : Boolean = this == Status.yet
-    def beDone : Boolean = this == Status.done
+    def isNotYet     : Boolean = this == Status.notYet
+    def isDone       : Boolean = this == Status.done
+    def isImpossible : Boolean = this == Status.impossible
   }
   object Status {
-    case object yet  extends Status( "yet" )
-    case object done extends Status( "done" )
+    case object notYet     extends Status( "notyet" )
+    case object done       extends Status( "done" )
+    case object impossible extends Status( "impossible" )
 
     def apply( value: String ): Status = value match {
-      case yet.value   => yet
-      case done.value  => done
-      case _ => yet
+      case notYet.value     => notYet
+      case done.value       => done
+      case impossible.value => impossible
+      case _ => notYet
     }
   }
 

@@ -31,10 +31,10 @@ package object market {
   val TransactionManager = system.actorOf( Props[transaction.Manager.JobActor], "TransactionManager" )
 
   def marketTime( baseTime: DateTime, currentMills: Long )( implicit marketStart: DateTime ): DateTime = {
-    val now = new DateTime( currentMills )
+    val now      = new DateTime( currentMills )
     val interval = Hours.hoursBetween( marketStart, now ).getHours
-    val diff = interval / 6
-    val mod  = interval % 6
+    val diff     = interval / 6
+    val mod      = interval % 6
 
     val newTime = baseTime.plusDays( diff )
     newTime
@@ -42,6 +42,8 @@ package object market {
       .withMinuteOfHour( now.getMinuteOfHour )
       .withSecondOfMinute( now.getSecondOfMinute )
   }
+
+  def marketNow: DateTime = marketTime( baseTime, System.currentTimeMillis )
 
   def adjustDay( targetDate: DateTime )( implicit marketStart: DateTime ): DateTime = {
 

@@ -93,7 +93,7 @@ trait Service extends HttpService {
         }
       }
     } ~
-    path( "user" / "contract" / "yet" ) {
+    path( "user" / "contract" / "notyet" ) {
       get {
         parameters( 'id ) { id =>
           respondWithMediaType( `application/json` ) {
@@ -116,7 +116,7 @@ trait Service extends HttpService {
         parameters(
            'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
           ( id, code, account, sol, how, price, number, expiration ) =>
-            val now       = marketTime( baseTime, System.currentTimeMillis )( marketStart )
+            val now      = marketNow
 
             val contract = Contract(
               userId     = id,
@@ -126,13 +126,14 @@ trait Service extends HttpService {
               how        = How( how ),
               price      = price,
               number     = number,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
+              bos        = BoS.buy
             )
             val messages = contract.validate
             val jobId    = Manager.jobId
 
             if ( messages.isEmpty ) {
-              TransactionManager ! ( "buy", contract )
+              TransactionManager ! contract
             }
 
             respondWithMediaType( `application/json` ) {
@@ -148,7 +149,7 @@ trait Service extends HttpService {
         parameters(
            'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
           ( id, code, account, sol, how, price, number, expiration ) =>
-            val now       = marketTime( baseTime, System.currentTimeMillis )( marketStart )
+            val now      = marketNow
 
             val contract = Contract(
               userId     = id,
@@ -159,12 +160,13 @@ trait Service extends HttpService {
               price      = price,
               number     = number,
               expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
+              bos        = BoS.sell
             )
             val messages = contract.validate
             val jobId    = Manager.jobId
 
             if ( messages.isEmpty ) {
-              TransactionManager ! ( "sell", contract )
+              TransactionManager ! contract
             }
 
             respondWithMediaType( `application/json` ) {
@@ -178,13 +180,13 @@ trait Service extends HttpService {
     path( "price" ) {
       get {
         parameters( 'code, 'start.?, 'end.?, 'tick.? ) { ( code, start, end, tick ) =>
-          val now       = marketTime( baseTime, System.currentTimeMillis )( marketStart )
+          val now       = marketNow
           val tickType  = Tick( tick )
           val tickMin   = Tick.tick2minutes( tickType )
           val startDate = start map timestampFormat.parseDateTime _ getOrElse now.minusMinutes( tickMin )
           val endDate   = end map timestampFormat.parseDateTime _ getOrElse now
 
-          val candles = Candles.retrieve( code, startDate, endDate, tickType )
+          val candles = Candles.searchByTick( code, startDate, endDate, tickType )
 
           respondWithMediaType( `application/json` ) {
             complete( s"${ candles.toJson }" )

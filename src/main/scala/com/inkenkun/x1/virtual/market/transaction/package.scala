@@ -17,7 +17,10 @@ package object transaction {
     }
   }
 
-  sealed abstract class Account( val value: String )
+  sealed abstract class Account( val value: String ) {
+    def isCredit: Boolean = this == Account.credit
+    def isCash  : Boolean = this == Account.cash
+  }
   object Account {
     case object credit extends Account( "credit" )
     case object cash   extends Account( "cash" )
@@ -38,6 +41,21 @@ package object transaction {
       case short.value => short
       case long.value  => long
       case _ => long
+    }
+  }
+
+  sealed abstract class BoS( val value: String ) {
+    def isBuy : Boolean = this == BoS.buy
+    def isSell: Boolean = this == BoS.sell
+  }
+  object BoS {
+    case object buy  extends BoS( "buy" )
+    case object sell extends BoS( "sell" )
+
+    def apply( value: String ): BoS = value match {
+      case buy.value  => buy
+      case sell.value => sell
+      case _ => buy
     }
   }
 }
