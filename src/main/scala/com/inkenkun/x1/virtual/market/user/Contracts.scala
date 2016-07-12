@@ -1,6 +1,7 @@
 package com.inkenkun.x1.virtual.market.user
 
 import scala.collection.mutable.ListBuffer
+import scala.util.Random
 
 import org.joda.time.DateTime
 
@@ -13,19 +14,21 @@ case class Contract (
   account    : AccType,
   sol        : SoL,
   how        : How,
-  price      : Double,
+  price      : BigDecimal,
   number     : Int,
   expiration : DateTime,
   bos        : BoS,
+  market     : String = "TYO",
   status     : Contracts.Status = Contracts.Status.notYet
 ) {
   import com.inkenkun.x1.virtual.market._
 
   lazy val startTime = marketNow
 
+  lazy val jobId = Random.nextInt( 99999999 ).toString
   lazy val user  = Accounts.retrieve( userId )
-  lazy val stock = Candles.latest( code, startTime.plusMinutes( 3 ) )
-  lazy val unit  = if ( how.isMarket ) stock.flatMap( s => Some( s.high ) ).getOrElse( BigDecimal(0) ) else BigDecimal( price )
+  lazy val stock = Candles.latest( code, startTime.plusMinutes( 3 ).toDate )
+  lazy val unit  = if ( how.isMarket ) stock.map( _.high ).getOrElse( BigDecimal(0) ) else price
 
   def validate: List[String] = {
 
@@ -53,27 +56,11 @@ case class Contract (
     if ( sol == SoL.short && account == AccType.cash ) {
       errors += "空売りの場合は信用取引を指定してください。"
     }
-    if ( account == AccType.cash ) {
-      user.availableCash.flatMap { c =>
-        if ( unit * number > c )
-          Some( s"口座残高が不足しています。現物取引可能残高: ${user.availableCash}, 単元価格: $unit" )
-        else
-          None
-      } match {
-        case Some( x ) => errors += x
-        case None => _
-      }
+    if ( account == AccType.cash && unit * number > user.availableCash ) {
+      errors += s"口座残高が不足しています。現物取引可能残高: ${user.availableCash}, 単元価格: $unit"
     }
-    if ( account == AccType.credit ) {
-      user.availableCredit.flatMap { c =>
-        if ( unit * number > c )
-          Some( s"口座残高が不足しています。信用取引可能残高: ${user.availableCredit}, 単元価格: $unit" )
-        else
-          None
-      } match {
-        case Some( x ) => errors += x
-        case None => _
-      }
+    if ( account == AccType.credit && unit * number > user.availableCredit ) {
+      errors += s"口座残高が不足しています。信用取引可能残高: ${user.availableCredit}, 単元価格: $unit"
     }
     validate ++ errors.toList
   }
@@ -84,6 +71,15 @@ case class Contract (
 
     if ( sol == SoL.short && account == AccType.cash ) {
       errors += "空売りの買い戻し場合は信用取引を指定してください。"
+    }
+    val holding = user.holdings.find( p => p.market == market && p.code == code )
+    holding match {
+      case Some( x ) =>
+        if ( x.volume < number ) {
+          errors += s"指定された銘柄の保持株数が売却数より少ないです。保持数: ${x.volume}, 売却数: $number"
+        }
+      case None =>
+        errors += s"指定された銘柄コード: $code を保持していないため売却もしくは買い戻しを行うことができません。"
     }
     validate ++ errors.toList
   }

@@ -20,7 +20,6 @@ package object market {
   val config = ConfigFactory.load.getConfig( "market" )
 
   val startMills  = System.currentTimeMillis()
-  val marketStart = new DateTime( startMills )
 
   val dateFormat         = DateTimeFormat.forPattern( "yyyy-MM-dd" )
   val timestampFormat    = DateTimeFormat.forPattern( "yyyy-MM-dd HH:mm:ss" )
@@ -29,6 +28,8 @@ package object market {
   val CandleFetcher      = system.actorOf( Props[Candles.FetchActor], "CandlesFetcher" )
   val AccountsManager    = system.actorOf( Props[Accounts.ManagerActor], "AccountsManager" )
   val TransactionManager = system.actorOf( Props[transaction.Manager.JobActor], "TransactionManager" )
+
+  implicit val marketStart = new DateTime( startMills )
 
   def marketTime( baseTime: DateTime, currentMills: Long )( implicit marketStart: DateTime ): DateTime = {
     val now      = new DateTime( currentMills )

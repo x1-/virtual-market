@@ -66,6 +66,6 @@ object implicits {
 
   implicit val ListStringSerializer = new JsonSerializer[List[String]] {
     def toJson(a: List[String]): String = Serialization.write(a)
-    def fromJson(json: List): List[String] = JsonMethods.parse(json).extract[List[String]]
+    def fromJson(json: String): List[String] = JsonMethods.parse(json).extract[List[String]]
   }
 }

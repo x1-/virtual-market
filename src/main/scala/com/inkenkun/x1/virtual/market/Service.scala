@@ -75,9 +75,7 @@ trait Service extends HttpService {
           complete(
             <html>
               <head></head>
-              <body>
-                <p>Status: loading</p>
-              </body>
+              <body><p>Status: loading</p></body>
             </html>
           )
         }
@@ -89,6 +87,36 @@ trait Service extends HttpService {
           val account = Accounts.retrieve( id )
           respondWithMediaType( `application/json` ) {
             complete( account.toJson )
+          }
+        }
+      }
+    } ~
+    path( "user" / "add" ) {
+      get {
+        parameters( 'id, 'name ) { ( id, name ) =>
+          AccountsManager ! ( "add", id, name )
+          respondWithMediaType( `application/json` ) {
+            complete(
+              <html>
+                <head></head>
+                <body><p>Status: adding</p></body>
+              </html>
+            )
+          }
+        }
+      }
+    } ~
+    path( "user" / "reset" ) {
+      get {
+        parameters( 'id ) { id =>
+          AccountsManager ! ( "reset", id )
+          respondWithMediaType( `application/json` ) {
+            complete(
+              <html>
+                <head></head>
+                <body><p>Status: resetting</p></body>
+              </html>
+            )
           }
         }
       }
@@ -130,7 +158,6 @@ trait Service extends HttpService {
               bos        = BoS.buy
             )
             val messages = contract.validate
-            val jobId    = Manager.jobId
 
             if ( messages.isEmpty ) {
               TransactionManager ! contract
@@ -138,7 +165,7 @@ trait Service extends HttpService {
 
             respondWithMediaType( `application/json` ) {
               complete(
-                s"""{"message":${messages.toJson},"jobId":"$jobId"}"""
+                s"""{"message":${messages.toJson},"jobId":"${contract.jobId}"}"""
               )
             }
         }
@@ -159,11 +186,10 @@ trait Service extends HttpService {
               how        = How( how ),
               price      = price,
               number     = number,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
               bos        = BoS.sell
             )
             val messages = contract.validate
-            val jobId    = Manager.jobId
 
             if ( messages.isEmpty ) {
               TransactionManager ! contract
@@ -171,7 +197,7 @@ trait Service extends HttpService {
 
             respondWithMediaType( `application/json` ) {
               complete(
-                s"""{"message":${messages.toJson},"jobId":"$jobId"}"""
+                s"""{"message":${messages.toJson},"jobId":"${contract.jobId}"}"""
               )
             }
         }
