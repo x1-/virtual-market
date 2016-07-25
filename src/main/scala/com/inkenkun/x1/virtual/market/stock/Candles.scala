@@ -2,9 +2,12 @@ package com.inkenkun.x1.virtual.market.stock
 
 import java.util.Date
 
-import org.joda.time.DateTime
 import akka.actor.{Actor, ActorLogging}
+import scalikejdbc._
+import org.joda.time.DateTime
+
 import com.inkenkun.x1.virtual.market.bigquery.Handler
+import com.inkenkun.x1.virtual.market.mysql.{Handler => MySQLHandler}
 
 sealed abstract class Tick( val value: String )
 object Tick {
@@ -35,7 +38,7 @@ case class Candle (
   close  : BigDecimal,
   volume : Int
 )
-object Candle {
+object Candle extends SQLSyntaxSupport[Candle] {
   def apply ( cols: Seq[String] ): Candle =
     new Candle (
       time   = new Date( BigDecimal( cols.head ).toLong * 1000 ),
@@ -47,15 +50,27 @@ object Candle {
       close  = BigDecimal( cols( 6 ) ),
       volume = cols( 7 ).toInt
     )
+  
+  def apply( rs: WrappedResultSet ): Candle =
+    new Candle(
+      time   = rs.date( "time" ),
+      market = rs.string( "market" ),
+      code   = rs.string( "code" ),
+      open   = rs.bigDecimal( "open" ),
+      high   = rs.bigDecimal( "high" ),
+      low    = rs.bigDecimal( "low" ),
+      close  = rs.bigDecimal( "close" ),
+      volume = rs.int( "volume" )
+    )
 }
 
-object Candles {
+object Candles extends MySQLHandler {
 
   import com.inkenkun.x1.virtual.market._
 
   val projectId = config.getString( "bigquery.project_id" )
 
-  val sql =
+  val sql2 =
     s"""
       |select
       |    time
@@ -75,7 +90,7 @@ object Candles {
       |""".stripMargin
 
   val executeFunc: ( String, String ) => ( String, String ) => Vector[Candle] = ( startDate, endDate ) => ( tableName, code ) => {
-    val rs = Handler.executeQuery( sql.format( tableName, code, startDate, endDate ), projectId )
+    val rs = Handler.executeQuery( sql2.format( tableName, code, startDate, endDate ), projectId )
     rs.toVector.map{ row => Candle ( row ) } sortBy( _.time )
   }
 
@@ -90,16 +105,26 @@ object Candles {
     status = "fetch1m start"
     println( status )
 
-    val execute = executeFunc( start.toString( timestampFormat ), end.toString( timestampFormat ) )
-
     val total = Stocks.values.length
 
     candles1m = Stocks.values.foldLeft( Map.empty[code, Vector[Candle]] ) { ( dict, stock ) =>
+      val candles = sql"""
+        select * from
+          candle_1m
+        where
+          code = '${stock.code}'
+          and time >= '${start.toString( timestampFormat )}'
+          and time >= '${end.toString( timestampFormat )}'
+        order by
+          time asc
+      """.map( rs => Candle( rs ) ).list.apply()
+
       if ( dict.size % 100 == 0 ) {
         println( s"${dict.size} / $total stocks fetched." )
       }
-      dict + ( stock.code -> execute( "1min_candle", s"= '${stock.code}'" ) )
+      dict + ( stock.code -> candles )
     }
+
     status = "fetch1m fetched"
     println( status )
   }
