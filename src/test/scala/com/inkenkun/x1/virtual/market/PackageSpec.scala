@@ -34,4 +34,45 @@ class PackageSpec extends Specification {
       newTime.getSecondOfMinute must_== 59
     }
   }
+
+  "market.package.adjustDay" should {
+
+    val timestampFormat = DateTimeFormat.forPattern( "yyyy-MM-dd HH:mm:ss" )
+    implicit val marketStart = timestampFormat.parseDateTime( "2016-01-01 00:00:00" )
+
+    "return 2015-04-05 14:59:59 when targetDate is 2015-04-05 14:59:59" in {
+      val targetDate = timestampFormat.parseDateTime( "2015-04-05 14:59:59" )
+      val newTime    = adjustDay( targetDate )
+
+      newTime.getYear           must_== 2015
+      newTime.getMonthOfYear    must_== 4
+      newTime.getDayOfMonth     must_== 5
+      newTime.getHourOfDay      must_== 14
+      newTime.getMinuteOfHour   must_== 59
+      newTime.getSecondOfMinute must_== 59
+    }
+    "return 2015-04-05 20:00:00 when targetDate is 2015-04-05 14:59:59" in {
+      val targetDate = timestampFormat.parseDateTime( "2015-04-05 20:00:00" )
+      val newTime    = adjustDay( targetDate )
+
+      newTime.getYear           must_== 2015
+      newTime.getMonthOfYear    must_== 4
+      newTime.getDayOfMonth     must_== 5
+      newTime.getHourOfDay      must_== 14
+      newTime.getMinuteOfHour   must_== 59
+      newTime.getSecondOfMinute must_== 59
+    }
+    "return 2015-04-06 06:00:00 when targetDate is 2015-04-05 14:59:59" in {
+      val targetDate = timestampFormat.parseDateTime( "2015-04-06 06:00:00" )
+      val newTime       = adjustDay( targetDate )
+
+      newTime.getYear           must_== 2015
+      newTime.getMonthOfYear    must_== 4
+      newTime.getDayOfMonth     must_== 5
+      newTime.getHourOfDay      must_== 14
+      newTime.getMinuteOfHour   must_== 59
+      newTime.getSecondOfMinute must_== 59
+    }
+  }
+
 }
