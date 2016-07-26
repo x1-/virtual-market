@@ -36,7 +36,7 @@ case class Candle (
   high   : BigDecimal,
   low    : BigDecimal,
   close  : BigDecimal,
-  volume : Int
+  volume : Long
 )
 object Candle extends SQLSyntaxSupport[Candle] {
   def apply ( cols: Seq[String] ): Candle =
@@ -48,7 +48,7 @@ object Candle extends SQLSyntaxSupport[Candle] {
       high   = BigDecimal( cols( 4 ) ),
       low    = BigDecimal( cols( 5 ) ),
       close  = BigDecimal( cols( 6 ) ),
-      volume = cols( 7 ).toInt
+      volume = cols( 7 ).toLong
     )
   
   def apply( rs: WrappedResultSet ): Candle =
@@ -60,7 +60,7 @@ object Candle extends SQLSyntaxSupport[Candle] {
       high   = rs.bigDecimal( "high" ),
       low    = rs.bigDecimal( "low" ),
       close  = rs.bigDecimal( "close" ),
-      volume = rs.int( "volume" )
+      volume = rs.long( "volume" )
     )
 }
 
@@ -101,6 +101,7 @@ object Candles extends MySQLHandler {
   var dictionary: Map[code, Map[tick, Vector[Candle]]] = Map.empty[code, Map[tick, Vector[Candle]]]
   var status = "notyet"
 
+  
   def fetch1m( start: DateTime, end: DateTime ): Unit = synchronized {
     status = "fetch1m start"
     println( status )
@@ -110,11 +111,11 @@ object Candles extends MySQLHandler {
     candles1m = Stocks.values.foldLeft( Map.empty[code, Vector[Candle]] ) { ( dict, stock ) =>
       val candles = sql"""
         select * from
-          candle_1m
+          candle_1min
         where
-          code = '${stock.code}'
-          and time >= '${start.toString( timestampFormat )}'
-          and time >= '${end.toString( timestampFormat )}'
+          code = ${stock.code}
+          and time >= ${start.toString( timestampFormat )}
+          and time >= ${end.toString( timestampFormat )}
         order by
           time asc
       """.map( rs => Candle( rs ) ).list.apply()
@@ -122,7 +123,7 @@ object Candles extends MySQLHandler {
       if ( dict.size % 100 == 0 ) {
         println( s"${dict.size} / $total stocks fetched." )
       }
-      dict + ( stock.code -> candles )
+      dict + ( stock.code -> candles.toVector )
     }
 
     status = "fetch1m fetched"
