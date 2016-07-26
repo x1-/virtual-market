@@ -4,6 +4,7 @@ import akka.actor.Props
 import com.typesafe.config.ConfigFactory
 import org.joda.time.{DateTime, Hours}
 import org.joda.time.format.DateTimeFormat
+import scalikejdbc._
 
 import com.inkenkun.x1.virtual.market.stock.Candles
 import com.inkenkun.x1.virtual.market.user.Accounts
@@ -30,6 +31,14 @@ package object market {
   val TransactionManager = system.actorOf( Props[transaction.Manager.JobActor], "TransactionManager" )
 
   implicit val marketStart = new DateTime( startMills )
+
+  GlobalSettings.loggingSQLAndTime = LoggingSQLAndTimeSettings(
+    enabled = true,
+    logLevel = 'DEBUG,
+    warningEnabled = true,
+    warningThresholdMillis = 1000L,
+    warningLogLevel = 'WARN
+  )
 
   def marketTime( baseTime: DateTime, currentMills: Long )( implicit marketStart: DateTime ): DateTime = {
     val now      = new DateTime( currentMills )

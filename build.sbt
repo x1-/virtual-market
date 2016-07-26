@@ -24,9 +24,10 @@ libraryDependencies ++= {
     "net.debasishg"       %%  "redisclient"                  % "3.0",
     "org.scalikejdbc"     %%  "scalikejdbc"                  % "2.4.2",
     "mysql"                %  "mysql-connector-java"         % "5.1.39",
+    "com.google.apis"      %  "google-api-services-bigquery" % "v2-rev307-1.22.0",
     "org.apache.commons"   %  "commons-lang3"                % "3.3.2",
     "joda-time"            %  "joda-time"                    % "2.9.4",
-    "com.google.apis"      %  "google-api-services-bigquery" % "v2-rev307-1.22.0",
+    "ch.qos.logback"       %  "logback-classic"              % "1.1.7",
     "org.specs2"          %%  "specs2-core"                  % "3.6.1-scalaz-7.0.6" % "test"
   )
 }
