@@ -2,11 +2,14 @@ package com.inkenkun.x1.virtual.market.user
 
 import java.util.Date
 import scala.collection.mutable
+import scala.util.Try
 
 import akka.actor.{Actor, ActorLogging}
+import scalikejdbc._
 
+import com.inkenkun.x1.virtual.market.mysql.{Handler => MySQLHandler}
+import com.inkenkun.x1.virtual.market.redis.{Handler => RedisHandler}
 import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, BoS, SoL}
-import com.inkenkun.x1.virtual.market.redis
 
 case class Account(
   userId          : String = "",
@@ -20,7 +23,7 @@ case class Account(
 ) {
   def calcAvailableCash( contract: Contract ): BigDecimal = {
 
-    val commitPrice = contract.price * contract.number
+    val commitPrice = contract.price * contract.volume
     val maybeStock  = findStock( contract.market, contract.code )
 
     ( contract.bos, contract.status, contract.sol, contract.account ) match {
@@ -38,7 +41,7 @@ case class Account(
 
   def calcAvailableCredit( contract: Contract ): BigDecimal = {
 
-    val commitPrice = contract.price * contract.number
+    val commitPrice = contract.price * contract.volume
     val maybeStock  = findStock( contract.market, contract.code )
 
     ( contract.bos, contract.status, contract.sol, contract.account ) match {
@@ -49,7 +52,7 @@ case class Account(
       case ( BoS.sell, Contracts.Status.done,       SoL.long,  AccType.credit  ) => availableCredit + commitPrice
       case ( BoS.sell, Contracts.Status.done,       SoL.short, AccType.credit ) =>
         val stock    = maybeStock.get
-        val original = stock.price * contract.number
+        val original = stock.price * contract.volume
         val profit   = original - commitPrice
         availableCredit + original + profit
       case ( BoS.sell, Contracts.Status.notYet,     _,         AccType.credit ) => availableCredit
@@ -64,7 +67,7 @@ case class Account(
       market = contract.market,
       code   = contract.code,
       price  = contract.price,
-      volume = contract.number,
+      volume = contract.volume,
       soL    = contract.sol
     )
     if ( contract.bos.isBuy && contract.status.isDone ) {
@@ -99,6 +102,16 @@ case class Account(
     holdings.find( h => h.market == market && h.code == code )
 
 }
+object Account extends SQLSyntaxSupport[Account] {
+  def apply( rs: WrappedResultSet ): Account =
+    new Account(
+      userId          = rs.string( "user_id" ),
+      userName        = rs.string( "user_name" ),
+      availableCash   = rs.bigDecimal( "available_cash" ),
+      availableCredit = rs.bigDecimal( "available_credit" ),
+      balance         = rs.bigDecimal( "balance" )
+    )
+}
 
 case class Holding (
   time   : Date,
@@ -109,22 +122,20 @@ case class Holding (
   soL    : SoL
 )
 
-object Accounts{
+object Accounts extends MySQLHandler with RedisHandler {
 
   import com.inkenkun.x1.virtual.market.userId
   import com.inkenkun.x1.virtual.market.implicits._
 
-  val saveKey = "users"
+  val saveKey = "user_%d"
   val users   = mutable.Map.empty[userId, Account]
 
-  lazy val initialUsers: List[Account] = {
-    val maybeUsers = redis.Handler.get( saveKey )
-    maybeUsers map( _.parseAs[List[Account]] ) getOrElse List.empty[Account]
-  }
+  lazy val initialUsers: List[Account] = fetchAll
 
-  def retrieve( id: userId ): Account = users.getOrElse( id, Account() )
+  def retrieve( id: userId ): Account =
+    getFromRedis( id ).map( s => s.parseAs[Account] ).getOrElse( Account() )
 
-  private def updateStagedContract( contract: Contract ): Unit = synchronized {
+  private def updateStagedContract( contract: Contract ): Boolean = synchronized { (
     for {
       user   <- users.get( contract.userId )
     } yield {
@@ -134,10 +145,10 @@ object Accounts{
         notContracted   = user.notContracted :+ contract
       )
       users.update( user.userId, newUser )
-      redis.Handler.set( saveKey, users.values.toList.toJson )
-    }
+      setToRedis( saveKey, users.values.toList.toJson )
+    } ) getOrElse false
   }
-  private def updateContract( contract: Contract ): Unit = synchronized {
+  private def updateContract( contract: Contract ): Boolean = synchronized { (
     for {
       user   <- users.get( contract.userId )
     } yield {
@@ -149,38 +160,64 @@ object Accounts{
         notContracted   = user.notContracted.filterNot( _.jobId == contract.jobId )
       )
       users.update( user.userId, newUser )
-      redis.Handler.set( saveKey, users.values.toList.toJson )
-    }
+      setToRedis( saveKey, users.values.toList.toJson )
+    } ) getOrElse false
   }
 
-  private def load(): Unit = synchronized {
-    initialUsers.map { acc =>
-      users += ( acc.userId -> acc )
+  private def fetchAll: List[Account] = sql"""
+      select * from
+        accounts
+    """.map( rs => Account( rs ) ).list.apply()
+    
+  private def load(): Unit = {
+    initialUsers.foreach { acc =>
+      setToRedis( saveKey.format( acc.userId ), acc.toJson )
     }
   }
-  private def add( userId: String, userName: String ): Unit = synchronized {
-    users += ( userId -> Account(
+  private def add( userId: String, userName: String )(implicit s: DBSession = AutoSession): Long = {
+    val newAccount = Account(
       userId   = userId,
       userName = userName
-    ) )
+    )
+    setToRedis( saveKey.format( userId ), newAccount.toJson )
+
+    sql"""
+      | insert into accounts(
+      |   user_id, user_name, available_cash, available_credit, balance
+      | ) values (
+      |   ${newAccount.userId}, ${newAccount.userName}, ${newAccount.availableCash}, ${newAccount.availableCredit}, ${newAccount.balance}
+      | );
+    """.stripMargin.updateAndReturnGeneratedKey.apply()
   }
-  private def reset( userId: String ): Unit = synchronized {
-    users.get( userId ) match {
+  
+  private def reset( userId: String ): Unit = {
+    getFromRedis( userId ) match {
       case Some(a) =>
-        users.update( userId, Account(
-          userId   = a.userId,
-          userName = a.userName
-        ) )
+        val oldA = a.parseAs[Account]
+        val newA = Account( userId = oldA.userId, userName = oldA.userName )
+        setToRedis( userId, newA.toJson )
       case None => {}
     }
+  }
+  private def save(): Unit = fetchAll.foreach { ac =>
+    val account = retrieve( ac.userId )
+    sql"""
+      | update accounts set
+      |    available_cash   = ${account.availableCash}
+      |   ,available_credit = ${account.availableCredit}
+      |   ,balance          = ${account.balance}
+      |   ,updated_at       = CURRENT_TIMESTAMP()
+      | where
+      |   user_id = ${account.userId}
+      |;
+    """.stripMargin.updateAndReturnGeneratedKey.apply()
   }
 
   class ManagerActor extends Actor with ActorLogging {
     def receive = {
       case "load" =>
-        if ( users.nonEmpty ) {
-          load()
-        }
+
+        load()
       case ( "add", userId: String, userName: String ) =>
         add( userId, userName )
 
@@ -188,7 +225,7 @@ object Accounts{
         reset( userId )
 
       case ( "stage", contract: Contract ) =>
-        updateStagedContract( contract )
+        sender ! Try( updateStagedContract( contract ) )
 
       case ( "commit", contract: Contract ) =>
         updateContract( contract )

@@ -33,8 +33,9 @@ package object market {
   implicit val marketStart = new DateTime( startMills )
 
   GlobalSettings.loggingSQLAndTime = LoggingSQLAndTimeSettings(
-    enabled = true,
+    enabled = false,
     logLevel = 'DEBUG,
+    singleLineMode = true,
     warningEnabled = true,
     warningThresholdMillis = 1000L,
     warningLogLevel = 'WARN

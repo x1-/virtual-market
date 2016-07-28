@@ -70,7 +70,7 @@ trait Service extends HttpService {
     } ~
     path( "user" / "load" ) {
       get {
-        respondWithMediaType( `application/json` ) {
+        respondWithMediaType( `text/html` ) {
           AccountsManager ! "load"
           complete(
             <html>
@@ -153,7 +153,7 @@ trait Service extends HttpService {
               sol        = SoL( sol ),
               how        = How( how ),
               price      = price,
-              number     = number,
+              volume     = number,
               expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
               bos        = BoS.buy
             )
@@ -185,7 +185,7 @@ trait Service extends HttpService {
               sol        = SoL( sol ),
               how        = How( how ),
               price      = price,
-              number     = number,
+              volume     = number,
               expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
               bos        = BoS.sell
             )

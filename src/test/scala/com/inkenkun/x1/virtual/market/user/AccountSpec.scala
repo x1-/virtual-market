@@ -33,7 +33,7 @@ class AccountSpec extends Specification {
       sol        = transaction.SoL.long,
       how        = transaction.How.limit,
       price      = 95d,
-      number     = 100,
+      volume     = 100,
       expiration = marketNow,
       bos        = transaction.BoS.buy,
       market     = "TYO"
@@ -80,7 +80,7 @@ class AccountSpec extends Specification {
       sol        = transaction.SoL.long,
       how        = transaction.How.limit,
       price      = 95d,
-      number     = 100,
+      volume     = 100,
       expiration = marketNow,
       bos        = transaction.BoS.buy,
       market     = "TYO"
@@ -125,7 +125,7 @@ class AccountSpec extends Specification {
       sol        = transaction.SoL.short,
       how        = transaction.How.limit,
       price      = 95d,
-      number     = 100,
+      volume     = 100,
       expiration = marketNow,
       bos        = transaction.BoS.buy,
       market     = "TYO"
@@ -160,7 +160,7 @@ class AccountSpec extends Specification {
       sol        = transaction.SoL.long,
       how        = transaction.How.limit,
       price      = 95d,
-      number     = 100,
+      volume     = 100,
       expiration = marketNow,
       bos        = transaction.BoS.buy,
       market     = "TYO",
@@ -201,7 +201,7 @@ class AccountSpec extends Specification {
       stock.price  must_== BigDecimal( 100d )
     }
     "return no stock when selling the full of the stock ." in {
-      val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell, number = 200 ) )
+      val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell, volume = 200 ) )
       val stock  = stocks.find( _.code == contract.code )
 
       stocks.size  must_== 1
