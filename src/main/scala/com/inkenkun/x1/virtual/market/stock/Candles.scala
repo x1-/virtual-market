@@ -6,7 +6,6 @@ import akka.actor.{Actor, ActorLogging}
 import scalikejdbc._
 import org.joda.time.DateTime
 
-import com.inkenkun.x1.virtual.market.bigquery.Handler
 import com.inkenkun.x1.virtual.market.mysql.{Handler => MySQLHandler}
 
 sealed abstract class Tick( val value: String )
@@ -68,32 +67,6 @@ object Candles extends MySQLHandler {
 
   import com.inkenkun.x1.virtual.market._
 
-  val projectId = config.getString( "bigquery.project_id" )
-
-  val sql2 =
-    s"""
-      |select
-      |    time
-      |   ,market
-      |   ,code
-      |   ,open
-      |   ,high
-      |   ,low
-      |   ,close
-      |   ,volume
-      | from
-      |   [stocks.%s]
-      | where
-      |   code %s
-      |   and time >= timestamp( '%s' )
-      |   and time <= timestamp( '%s' )
-      |""".stripMargin
-
-  val executeFunc: ( String, String ) => ( String, String ) => Vector[Candle] = ( startDate, endDate ) => ( tableName, code ) => {
-    val rs = Handler.executeQuery( sql2.format( tableName, code, startDate, endDate ), projectId )
-    rs.toVector.map{ row => Candle ( row ) } sortBy( _.time )
-  }
-
   var candles1m: Map[code, Vector[Candle]] = Map.empty[code, Vector[Candle]]
   var candles5m: Map[code, Vector[Candle]] = Map.empty[code, Vector[Candle]]
   var candles1d: Map[code, Vector[Candle]] = Map.empty[code, Vector[Candle]]
@@ -103,22 +76,38 @@ object Candles extends MySQLHandler {
 
   
   def fetch1m( start: DateTime, end: DateTime ): Unit = synchronized {
-    status = "fetch1m start"
+    candles1m = fetch( "candle_1min", start, end )
+  }
+
+  def fetch5m( start: DateTime, end: DateTime ): Unit = synchronized {
+    candles5m = fetch( "candle_5min", start, end )
+  }
+
+  def fetch1d( start: DateTime, end: DateTime ): Unit = synchronized {
+    candles1d = fetch( "candle_1day", start, end )
+  }
+
+  private def fetch( table: String, start: DateTime, end: DateTime ): Map[code, Vector[Candle]] = {
+    status = s"fetch $table start"
     println( status )
 
     val total = Stocks.values.length
 
-    candles1m = Stocks.values.foldLeft( Map.empty[code, Vector[Candle]] ) { ( dict, stock ) =>
-      val candles = sql"""
+    val candles = Stocks.values.foldLeft( Map.empty[code, Vector[Candle]] ) { ( dict, stock ) =>
+      val candles = SQL( s"""
         select * from
-          candle_1min
+          $table
         where
-          code = ${stock.code}
-          and time >= ${start.toString( timestampFormat )}
-          and time >= ${end.toString( timestampFormat )}
+          code = {code}
+          and time >= {start}
+          and time >= {end}
         order by
           time asc
-      """.map( rs => Candle( rs ) ).list.apply()
+      """).bindByName(
+          'code  -> stock.code,
+          'start -> start.toString( timestampFormat ),
+          'end   -> end.toString( timestampFormat )
+         ).map( rs => Candle( rs ) ).list.apply()
 
       if ( dict.size % 100 == 0 ) {
         println( s"${dict.size} / $total stocks fetched." )
@@ -126,60 +115,11 @@ object Candles extends MySQLHandler {
       dict + ( stock.code -> candles.toVector )
     }
 
-    status = "fetch1m fetched"
+    status = s"fetch $table start"
     println( status )
+    
+    candles
   }
-
-  def fetch5m( start: DateTime, end: DateTime ): Unit = synchronized {
-    status = "fetch5m start"
-    println( status )
-
-    val execute = executeFunc( start.toString( timestampFormat ), end.toString( timestampFormat ) )
-
-    val total  = Stocks.values.length
-    val offset = ( total / 100 ) + ( if ( total % 100 == 0 ) 0 else 1 )
-
-    val dumps = for ( i <- 0 to 100 ) yield {
-      Stocks.values.slice( i * offset, scala.math.min( (i+1) * offset, total ) )
-    }
-
-    dumps.foreach { stocks =>
-      val whereCondition = "in ('" + stocks.map( _.code ).mkString( "', '" ) + "')"
-      val cs = execute( "5min_candle", whereCondition )
-      candles5m = stocks.foldLeft( candles5m ) { ( dict, stock ) =>
-        if ( dict.size % 100 == 0 ) {
-          println( s"${dict.size} / $total stocks fetched." )
-        }
-        dict + ( stock.code -> cs.filter( _.code == stock.code ) )
-      }
-    }
-
-    status = "fetch5m fetched"
-    println( status )
-  }
-
-
-  def fetch1d( start: DateTime, end: DateTime ): Unit = synchronized {
-    status = "fetch1d start"
-    println( status )
-
-    val execute        = executeFunc( start.toString( timestampFormat ), end.toString( timestampFormat ) )
-    val whereCondition = "is not null"
-    val cs = execute( "daily_candle", whereCondition )
-
-    val total  = Stocks.values.length
-
-    candles1d = Stocks.values.foldLeft( Map.empty[code, Vector[Candle]] ){ ( dict, stock ) =>
-      if ( ( dict.size + 1 ) % 100 == 0 ) {
-        println( s"${dict.size + 1} / $total stocks fetched." )
-      }
-      dict + ( stock.code -> cs.filter( _.code == stock.code ) )
-    }
-
-    status = "fetch1d fetched"
-    println( status )
-  }
-
 
   def latest( code: String, time: Date ): Option[Candle] = {
     val m1 = latestByTick( code, Tick.m1, time )
