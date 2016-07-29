@@ -33,7 +33,6 @@ object Manager extends RedisHandler {
           TransactionManager ! contract.jobId
         }
         else {
-          import system.dispatcher
           val now = marketNow
           val duration = new JodaDuration( now, contract.expiration )
           system.scheduler.scheduleOnce(
@@ -66,7 +65,7 @@ object Manager extends RedisHandler {
 
       val reg = AccountsManager ? ( "commit", contract )
       reg.mapTo[Try[Boolean]].onComplete {
-        case Success(s) => {}
+        case Success(s) => TransactionManager ! ( "commited.", s"manager.commit.$jobId" )
         case Failure(e) => TransactionManager ! ( e, s"manager.commit.$jobId" )
       }
       Await.result( reg, Duration.Inf )
@@ -81,7 +80,10 @@ object Manager extends RedisHandler {
       case ( jobId: String ) =>
         commit( jobId )
 
-      case ( tag: String, e: Exception ) =>
+      case ( message: String, tag: String ) =>
+        log.info( message, tag )
+
+      case ( e: Exception, tag: String ) =>
         log.error( e, tag )
     }
   }

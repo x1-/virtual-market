@@ -142,20 +142,20 @@ trait Service extends HttpService {
     path( "buy" ) {
       get {
         parameters(
-           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
+           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Long] ? 100, 'expiration.? ) {
           ( id, code, account, sol, how, price, number, expiration ) =>
             val now      = marketNow
 
             val contract = Contract(
               userId     = id,
               code       = code,
+              price      = price,
+              volume     = number,
               account    = Account( account ),
               sol        = SoL( sol ),
               how        = How( how ),
-              price      = price,
-              volume     = number,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
-              bos        = BoS.buy
+              bos        = BoS.buy,
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
             )
             val messages = contract.validate
 
@@ -174,20 +174,20 @@ trait Service extends HttpService {
     path( "sell" ) {
       get {
         parameters(
-           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
+           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Long] ? 100, 'expiration.? ) {
           ( id, code, account, sol, how, price, number, expiration ) =>
             val now      = marketNow
 
             val contract = Contract(
               userId     = id,
               code       = code,
+              price      = price,
+              volume     = number,
               account    = Account( account ),
               sol        = SoL( sol ),
               how        = How( how ),
-              price      = price,
-              volume     = number,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
-              bos        = BoS.sell
+              bos        = BoS.sell,
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
             )
             val messages = contract.validate
 

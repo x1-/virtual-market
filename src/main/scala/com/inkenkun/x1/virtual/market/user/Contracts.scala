@@ -4,6 +4,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
 import org.joda.time.DateTime
+import scalikejdbc.{SQLSyntaxSupport, WrappedResultSet}
 
 import com.inkenkun.x1.virtual.market.stock.Candles
 import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, BoS, How, SoL}
@@ -13,13 +14,14 @@ case class Contract (
   market     : String = "TYO",
   code       : String,
   price      : BigDecimal,
-  volume     : Int,
+  volume     : Long,
   account    : AccType,
   sol        : SoL,
   how        : How,
   bos        : BoS,
   expiration : DateTime,
-  status     : Contracts.Status = Contracts.Status.notYet
+  status     : Contracts.Status = Contracts.Status.notYet,
+  id         : Option[Int] = None
 ) {
   import com.inkenkun.x1.virtual.market._
 
@@ -83,6 +85,24 @@ case class Contract (
     }
     validate ++ errors.toList
   }
+}
+
+object Contract extends SQLSyntaxSupport[Contract] {
+  def apply( rs: WrappedResultSet ): Contract =
+    new Contract(
+      userId     = rs.string( "user_id" ),
+      market     = rs.string( "market" ),
+      code       = rs.string( "code" ),
+      price      = rs.bigDecimal( "price" ),
+      volume     = rs.long( "volume" ),
+      account    = AccType( rs.string( "account" ) ),
+      sol        = SoL( rs.string( "short_or_long" ) ),
+      how        = How( rs.string( "how" ) ),
+      bos        = BoS( rs.string( "buy_or_sell" ) ),
+      expiration = rs.jodaDateTime( "expiration" ),
+      status     = Contracts.Status( rs.string( "status" ) ),
+      id         = rs.intOpt( "id" )
+    )
 }
 
 object Contracts {

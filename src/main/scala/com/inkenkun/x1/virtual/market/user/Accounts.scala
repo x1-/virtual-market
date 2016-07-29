@@ -1,11 +1,10 @@
 package com.inkenkun.x1.virtual.market.user
 
 import java.util.Date
-import scala.collection.mutable
 import scala.util.Try
 
 import akka.actor.{Actor, ActorLogging}
-import scalikejdbc._
+import scalikejdbc.{SQLSyntaxSupport, WrappedResultSet}
 
 import com.inkenkun.x1.virtual.market.mysql.{Handler => MySQLHandler}
 import com.inkenkun.x1.virtual.market.redis.{Handler => RedisHandler}
@@ -63,7 +62,8 @@ case class Account(
 
   def calcHoldings( contract: Contract ): List[Holding] = {
     val holding = Holding (
-      time   = contract.expiration.toDate,
+      userId = contract.userId,
+      time   = contract.expiration,
       market = contract.market,
       code   = contract.code,
       price  = contract.price,
@@ -113,122 +113,72 @@ object Account extends SQLSyntaxSupport[Account] {
     )
 }
 
-case class Holding (
-  time   : Date,
-  market : String,
-  code   : String,
-  price  : BigDecimal,
-  volume : Int,
-  soL    : SoL
-)
-
 object Accounts extends MySQLHandler with RedisHandler {
 
   import com.inkenkun.x1.virtual.market.userId
-  import com.inkenkun.x1.virtual.market.implicits._
 
-  val saveKey = "user_%d"
-  val users   = mutable.Map.empty[userId, Account]
+  lazy val initialUsers: List[Account] = UserDao.fullFetchAll
 
-  lazy val initialUsers: List[Account] = fetchAll
+  def retrieve( id: userId ): Account = UserDao.retrieve( id )
 
-  def retrieve( id: userId ): Account =
-    getFromRedis( id ).map( s => s.parseAs[Account] ).getOrElse( Account() )
-
-  private def updateStagedContract( contract: Contract ): Boolean = synchronized { (
-    for {
-      user   <- users.get( contract.userId )
-    } yield {
-      val newUser = user.copy(
-        availableCash   = user.calcAvailableCash( contract ),
-        availableCredit = user.calcAvailableCredit( contract ),
-        notContracted   = user.notContracted :+ contract
-      )
-      users.update( user.userId, newUser )
-      setToRedis( saveKey, users.values.toList.toJson )
-    } ) getOrElse false
-  }
-  private def updateContract( contract: Contract ): Boolean = synchronized { (
-    for {
-      user   <- users.get( contract.userId )
-    } yield {
-      val newUser = user.copy(
-        availableCash   = user.calcAvailableCash( contract ),
-        availableCredit = user.calcAvailableCredit( contract ),
-        holdings        = user.calcHoldings( contract ),
-        contracted      = user.contracted :+ contract,
-        notContracted   = user.notContracted.filterNot( _.jobId == contract.jobId )
-      )
-      users.update( user.userId, newUser )
-      setToRedis( saveKey, users.values.toList.toJson )
-    } ) getOrElse false
+  private def updateStagedContract( contract: Contract ): Try[Boolean] = {
+    val user    = retrieve( contract.userId )
+    val newUser = user.copy(
+      availableCash   = user.calcAvailableCash( contract ),
+      availableCredit = user.calcAvailableCredit( contract ),
+      notContracted   = user.notContracted :+ contract
+    )
+    UserDao.update( newUser )
   }
 
-  private def fetchAll: List[Account] = sql"""
-      select * from
-        accounts
-    """.map( rs => Account( rs ) ).list.apply()
-    
-  private def load(): Unit = {
-    initialUsers.foreach { acc =>
-      setToRedis( saveKey.format( acc.userId ), acc.toJson )
-    }
+  private def updateContract( contract: Contract ): Try[Boolean] = {
+    val user    = retrieve( contract.userId )
+    val newUser = user.copy(
+      availableCash   = user.calcAvailableCash( contract ),
+      availableCredit = user.calcAvailableCredit( contract ),
+      holdings        = user.calcHoldings( contract ),
+      contracted      = user.contracted :+ contract,
+      notContracted   = user.notContracted.filterNot( _.jobId == contract.jobId )
+    )
+    UserDao.update( newUser )
   }
-  private def add( userId: String, userName: String )(implicit s: DBSession = AutoSession): Long = {
-    val newAccount = Account(
+
+  private def load(): Try[Unit] = UserDao.expand( initialUsers )
+
+  private def add( userId: String, userName: String ): Try[Long] = {
+    UserDao.add( Account(
       userId   = userId,
       userName = userName
-    )
-    setToRedis( saveKey.format( userId ), newAccount.toJson )
+    ) )
+  }
 
-    sql"""
-      | insert into accounts(
-      |   user_id, user_name, available_cash, available_credit, balance
-      | ) values (
-      |   ${newAccount.userId}, ${newAccount.userName}, ${newAccount.availableCash}, ${newAccount.availableCredit}, ${newAccount.balance}
-      | );
-    """.stripMargin.updateAndReturnGeneratedKey.apply()
-  }
-  
-  private def reset( userId: String ): Unit = {
-    getFromRedis( userId ) match {
-      case Some(a) =>
-        val oldA = a.parseAs[Account]
-        val newA = Account( userId = oldA.userId, userName = oldA.userName )
-        setToRedis( userId, newA.toJson )
-      case None => {}
-    }
-  }
-  private def save(): Unit = fetchAll.foreach { ac =>
-    val account = retrieve( ac.userId )
-    sql"""
-      | update accounts set
-      |    available_cash   = ${account.availableCash}
-      |   ,available_credit = ${account.availableCredit}
-      |   ,balance          = ${account.balance}
-      |   ,updated_at       = CURRENT_TIMESTAMP()
-      | where
-      |   user_id = ${account.userId}
-      |;
-    """.stripMargin.updateAndReturnGeneratedKey.apply()
-  }
+  private def reset( userId: userId ): Try[Unit] = UserDao.reset( userId )
+
 
   class ManagerActor extends Actor with ActorLogging {
     def receive = {
       case "load" =>
+        load().recover {
+          case e: Throwable => log.error( e, "manager.load" )
+        }
 
-        load()
       case ( "add", userId: String, userName: String ) =>
-        add( userId, userName )
+        add( userId, userName ).recover {
+          case e: Throwable => log.error( e, "manager.add" )
+        }
 
       case ( "reset", userId: String ) =>
-        reset( userId )
+        reset( userId ).recover {
+          case e: Throwable => log.error( e, "manager.reset" )
+        }
 
       case ( "stage", contract: Contract ) =>
-        sender ! Try( updateStagedContract( contract ) )
+        sender ! updateStagedContract( contract )
 
       case ( "commit", contract: Contract ) =>
-        updateContract( contract )
+        updateContract( contract ).recover {
+          case e: Throwable => log.error( e, "manager.commit" )
+        }
 
     }
   }
