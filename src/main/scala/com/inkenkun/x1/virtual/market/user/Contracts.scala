@@ -4,22 +4,24 @@ import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
 import org.joda.time.DateTime
+import scalikejdbc.{SQLSyntaxSupport, WrappedResultSet}
 
 import com.inkenkun.x1.virtual.market.stock.Candles
 import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, BoS, How, SoL}
 
 case class Contract (
   userId     : String,
+  market     : String = "TYO",
   code       : String,
+  price      : BigDecimal,
+  volume     : Long,
   account    : AccType,
   sol        : SoL,
   how        : How,
-  price      : BigDecimal,
-  number     : Int,
-  expiration : DateTime,
   bos        : BoS,
-  market     : String = "TYO",
-  status     : Contracts.Status = Contracts.Status.notYet
+  expiration : DateTime,
+  status     : Contracts.Status = Contracts.Status.notYet,
+  id         : Option[Int] = None
 ) {
   import com.inkenkun.x1.virtual.market._
 
@@ -40,7 +42,7 @@ case class Contract (
     if ( stock.isEmpty ) {
       errors += s"銘柄コードが正しくありません。指定された銘柄コード: $code, http://host/stocks/available で利用可能な銘柄を確認できます。"
     }
-    if ( number % 100 != 0 ) {
+    if ( volume % 100 != 0 ) {
       errors += "単元は100株単位で指定してください。"
     }
     if ( expiration.isBefore( startTime ) ) {
@@ -56,10 +58,10 @@ case class Contract (
     if ( sol == SoL.short && account == AccType.cash ) {
       errors += "空売りの場合は信用取引を指定してください。"
     }
-    if ( account == AccType.cash && unit * number > user.availableCash ) {
+    if ( account == AccType.cash && unit * volume > user.availableCash ) {
       errors += s"口座残高が不足しています。現物取引可能残高: ${user.availableCash}, 単元価格: $unit"
     }
-    if ( account == AccType.credit && unit * number > user.availableCredit ) {
+    if ( account == AccType.credit && unit * volume > user.availableCredit ) {
       errors += s"口座残高が不足しています。信用取引可能残高: ${user.availableCredit}, 単元価格: $unit"
     }
     validate ++ errors.toList
@@ -75,8 +77,8 @@ case class Contract (
     val holding = user.holdings.find( p => p.market == market && p.code == code )
     holding match {
       case Some( x ) =>
-        if ( x.volume < number ) {
-          errors += s"指定された銘柄の保持株数が売却数より少ないです。保持数: ${x.volume}, 売却数: $number"
+        if ( x.volume < volume ) {
+          errors += s"指定された銘柄の保持株数が売却数より少ないです。保持数: ${x.volume}, 売却数: $volume"
         }
       case None =>
         errors += s"指定された銘柄コード: $code を保持していないため売却もしくは買い戻しを行うことができません。"
@@ -85,7 +87,27 @@ case class Contract (
   }
 }
 
+object Contract extends SQLSyntaxSupport[Contract] {
+  def apply( rs: WrappedResultSet ): Contract =
+    new Contract(
+      userId     = rs.string( "user_id" ),
+      market     = rs.string( "market" ),
+      code       = rs.string( "code" ),
+      price      = rs.bigDecimal( "price" ),
+      volume     = rs.long( "volume" ),
+      account    = AccType( rs.string( "account" ) ),
+      sol        = SoL( rs.string( "short_or_long" ) ),
+      how        = How( rs.string( "how" ) ),
+      bos        = BoS( rs.string( "buy_or_sell" ) ),
+      expiration = rs.jodaDateTime( "expiration" ),
+      status     = Contracts.Status( rs.string( "status" ) ),
+      id         = rs.intOpt( "id" )
+    )
+}
+
 object Contracts {
+
+  import com.inkenkun.x1.virtual.market.userId
 
   sealed abstract class Status( val value: String ) {
     def isNotYet     : Boolean = this == Status.notYet
@@ -105,4 +127,7 @@ object Contracts {
     }
   }
 
+  def retrieveNotYets( userId: userId ) = UserDao.retrieve( userId ).notContracted
+
+  def retrieveDones( userId: userId )   = UserDao.retrieve( userId ).contracted
 }

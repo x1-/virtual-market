@@ -53,6 +53,10 @@ object implicits {
     def toJson(a: Contract): String = Serialization.write(a)
     def fromJson(json: String): Contract = JsonMethods.parse(json).extract[Contract]
   }
+  implicit val ContractsSerializer = new JsonSerializer[List[Contract]] {
+    def toJson(a: List[Contract]): String = Serialization.write(a)
+    def fromJson(json: String): List[Contract] = JsonMethods.parse(json).extract[List[Contract]]
+  }
 
   implicit val CandlesSerializer = new JsonSerializer[Vector[Candle]] {
     def toJson(a: Vector[Candle]): String = Serialization.write(a)

@@ -7,7 +7,7 @@ import spray.routing.RejectionHandler.Default
 
 import com.inkenkun.x1.virtual.market.stock._
 import com.inkenkun.x1.virtual.market.transaction._
-import com.inkenkun.x1.virtual.market.user.{Accounts, Contract}
+import com.inkenkun.x1.virtual.market.user.{Accounts, Contract, Contracts}
 
 class ServiceActor extends Actor with Service {
 
@@ -70,7 +70,7 @@ trait Service extends HttpService {
     } ~
     path( "user" / "load" ) {
       get {
-        respondWithMediaType( `application/json` ) {
+        respondWithMediaType( `text/html` ) {
           AccountsManager ! "load"
           complete(
             <html>
@@ -84,9 +84,8 @@ trait Service extends HttpService {
     path( "user" / "info" ) {
       get {
         parameters( 'id ) { id =>
-          val account = Accounts.retrieve( id )
           respondWithMediaType( `application/json` ) {
-            complete( account.toJson )
+            complete( Accounts.retrieve( id ).toJson )
           }
         }
       }
@@ -95,7 +94,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id, 'name ) { ( id, name ) =>
           AccountsManager ! ( "add", id, name )
-          respondWithMediaType( `application/json` ) {
+          respondWithMediaType( `text/html` ) {
             complete(
               <html>
                 <head></head>
@@ -110,7 +109,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id ) { id =>
           AccountsManager ! ( "reset", id )
-          respondWithMediaType( `application/json` ) {
+          respondWithMediaType( `text/html` ) {
             complete(
               <html>
                 <head></head>
@@ -125,7 +124,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id ) { id =>
           respondWithMediaType( `application/json` ) {
-            complete( s"" )
+            complete( Contracts.retrieveNotYets( id ).toJson )
           }
         }
       }
@@ -134,7 +133,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id ) { id =>
           respondWithMediaType( `application/json` ) {
-            complete( s"" )
+            complete( Contracts.retrieveDones( id ).toJson )
           }
         }
       }
@@ -142,20 +141,20 @@ trait Service extends HttpService {
     path( "buy" ) {
       get {
         parameters(
-           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
+           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Long] ? 100, 'expiration.? ) {
           ( id, code, account, sol, how, price, number, expiration ) =>
             val now      = marketNow
 
             val contract = Contract(
               userId     = id,
               code       = code,
+              price      = price,
+              volume     = number,
               account    = Account( account ),
               sol        = SoL( sol ),
               how        = How( how ),
-              price      = price,
-              number     = number,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
-              bos        = BoS.buy
+              bos        = BoS.buy,
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
             )
             val messages = contract.validate
 
@@ -174,20 +173,20 @@ trait Service extends HttpService {
     path( "sell" ) {
       get {
         parameters(
-           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Int] ? 100, 'expiration.? ) {
+           'id, 'code, 'account ? "cash", 'sol ? "long", 'how ? "market", 'price.as[Double] ? 0d, 'number.as[Long] ? 100, 'expiration.? ) {
           ( id, code, account, sol, how, price, number, expiration ) =>
             val now      = marketNow
 
             val contract = Contract(
               userId     = id,
               code       = code,
+              price      = price,
+              volume     = number,
               account    = Account( account ),
               sol        = SoL( sol ),
               how        = How( how ),
-              price      = price,
-              number     = number,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
-              bos        = BoS.sell
+              bos        = BoS.sell,
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
             )
             val messages = contract.validate
 
