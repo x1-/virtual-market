@@ -7,7 +7,7 @@ import spray.routing.RejectionHandler.Default
 
 import com.inkenkun.x1.virtual.market.stock._
 import com.inkenkun.x1.virtual.market.transaction._
-import com.inkenkun.x1.virtual.market.user.{Accounts, Contract}
+import com.inkenkun.x1.virtual.market.user.{Accounts, Contract, Contracts}
 
 class ServiceActor extends Actor with Service {
 
@@ -84,9 +84,8 @@ trait Service extends HttpService {
     path( "user" / "info" ) {
       get {
         parameters( 'id ) { id =>
-          val account = Accounts.retrieve( id )
           respondWithMediaType( `application/json` ) {
-            complete( account.toJson )
+            complete( Accounts.retrieve( id ).toJson )
           }
         }
       }
@@ -95,7 +94,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id, 'name ) { ( id, name ) =>
           AccountsManager ! ( "add", id, name )
-          respondWithMediaType( `application/json` ) {
+          respondWithMediaType( `text/html` ) {
             complete(
               <html>
                 <head></head>
@@ -110,7 +109,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id ) { id =>
           AccountsManager ! ( "reset", id )
-          respondWithMediaType( `application/json` ) {
+          respondWithMediaType( `text/html` ) {
             complete(
               <html>
                 <head></head>
@@ -125,7 +124,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id ) { id =>
           respondWithMediaType( `application/json` ) {
-            complete( s"" )
+            complete( Contracts.retrieveNotYets( id ).toJson )
           }
         }
       }
@@ -134,7 +133,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id ) { id =>
           respondWithMediaType( `application/json` ) {
-            complete( s"" )
+            complete( Contracts.retrieveDones( id ).toJson )
           }
         }
       }

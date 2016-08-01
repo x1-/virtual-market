@@ -1,6 +1,5 @@
 package com.inkenkun.x1.virtual.market.user
 
-import java.util.Date
 import scala.util.Try
 
 import akka.actor.{Actor, ActorLogging}
@@ -121,7 +120,7 @@ object Accounts extends MySQLHandler with RedisHandler {
 
   def retrieve( id: userId ): Account = UserDao.retrieve( id )
 
-  private def updateStagedContract( contract: Contract ): Try[Boolean] = {
+  private def stageContract( contract: Contract ): Try[Boolean] = {
     val user    = retrieve( contract.userId )
     val newUser = user.copy(
       availableCash   = user.calcAvailableCash( contract ),
@@ -131,7 +130,7 @@ object Accounts extends MySQLHandler with RedisHandler {
     UserDao.update( newUser )
   }
 
-  private def updateContract( contract: Contract ): Try[Boolean] = {
+  private def commitContract( contract: Contract ): Try[Boolean] = {
     val user    = retrieve( contract.userId )
     val newUser = user.copy(
       availableCash   = user.calcAvailableCash( contract ),
@@ -173,10 +172,10 @@ object Accounts extends MySQLHandler with RedisHandler {
         }
 
       case ( "stage", contract: Contract ) =>
-        sender ! updateStagedContract( contract )
+        sender ! stageContract( contract )
 
       case ( "commit", contract: Contract ) =>
-        updateContract( contract ).recover {
+        commitContract( contract ).recover {
           case e: Throwable => log.error( e, "manager.commit" )
         }
 

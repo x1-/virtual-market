@@ -107,6 +107,8 @@ object Contract extends SQLSyntaxSupport[Contract] {
 
 object Contracts {
 
+  import com.inkenkun.x1.virtual.market.userId
+
   sealed abstract class Status( val value: String ) {
     def isNotYet     : Boolean = this == Status.notYet
     def isDone       : Boolean = this == Status.done
@@ -125,4 +127,7 @@ object Contracts {
     }
   }
 
+  def retrieveNotYets( userId: userId ) = UserDao.retrieve( userId ).notContracted
+
+  def retrieveDones( userId: userId )   = UserDao.retrieve( userId ).contracted
 }

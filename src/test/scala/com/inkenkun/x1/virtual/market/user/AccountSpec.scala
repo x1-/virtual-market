@@ -8,6 +8,7 @@ class AccountSpec extends Specification {
   import implicits._
 
   val holding1 = Holding(
+    userId = "000000",
     time   = marketNow,
     market = "TYO",
     code   = "1332",
@@ -16,6 +17,7 @@ class AccountSpec extends Specification {
     soL    = transaction.SoL.long
   )
   val holding2 = Holding(
+    userId = "000000",
     time   = marketNow,
     market = "TYO",
     code   = "1333",
