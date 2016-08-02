@@ -2,7 +2,9 @@ package com.inkenkun.x1.virtual.market
 
 package object transaction {
 
-  sealed abstract class How( val value: String ) {
+  abstract class Constant( val value: String )
+
+  sealed abstract class How( override val value: String ) extends Constant( value ) {
     def isMarket: Boolean = this == How.market
     def isLimit : Boolean = this == How.limit
   }
@@ -17,7 +19,7 @@ package object transaction {
     }
   }
 
-  sealed abstract class Account( val value: String ) {
+  sealed abstract class Account( override val value: String ) extends Constant( value ) {
     def isCredit: Boolean = this == Account.credit
     def isCash  : Boolean = this == Account.cash
   }
@@ -32,7 +34,7 @@ package object transaction {
     }
   }
 
-  sealed abstract class SoL( val value: String )
+  sealed abstract class SoL( override val value: String ) extends Constant( value )
   object SoL {
     case object short extends SoL( "short" )
     case object long  extends SoL( "long" )
@@ -44,7 +46,7 @@ package object transaction {
     }
   }
 
-  sealed abstract class BoS( val value: String ) {
+  sealed abstract class BoS( override val value: String ) extends Constant( value ) {
     def isBuy : Boolean = this == BoS.buy
     def isSell: Boolean = this == BoS.sell
   }

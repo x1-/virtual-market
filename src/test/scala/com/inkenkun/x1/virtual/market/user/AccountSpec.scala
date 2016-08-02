@@ -210,4 +210,34 @@ class AccountSpec extends Specification {
       stock must beNone
     }
   }
+  "Account.toJson" should {
+    val contract = Contract (
+      userId     = "111111",
+      code       = "1332",
+      account    = transaction.Account.cash,
+      sol        = transaction.SoL.long,
+      how        = transaction.How.limit,
+      price      = 95d,
+      volume     = 100,
+      expiration = marketNow,
+      bos        = transaction.BoS.buy,
+      market     = "TYO",
+      status     = Contracts.Status.done
+    )
+    val user = Account(
+      userId     = "111111",
+      userName        = "test",
+      availableCash   = BigDecimal( 1000000 ),
+      availableCredit = BigDecimal( 1000000 ),
+      balance         = BigDecimal( 1000000 ),
+      holdings        = List( holding1, holding2 ),
+      contracted      = List.empty[Contract],
+      notContracted   = List( contract.copy( status = Contracts.Status.notYet ) )
+    )
+    "return customized formatted json string." in {
+      val json = user.toJson
+      println( json )
+      json must not beEmpty
+    }
+  }
 }
