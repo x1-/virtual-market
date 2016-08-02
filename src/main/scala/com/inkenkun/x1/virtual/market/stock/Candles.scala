@@ -115,7 +115,7 @@ object Candles extends MySQLHandler {
       dict + ( stock.code -> candles.toVector )
     }
 
-    status = s"fetch $table start"
+    status = s"fetch $table end"
     println( status )
     
     candles
