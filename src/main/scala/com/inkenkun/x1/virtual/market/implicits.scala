@@ -6,10 +6,12 @@ import java.util.Date
 import scala.concurrent.duration._
 import akka.actor.ActorSystem
 import akka.util.Timeout
-import org.json4s.{DateFormat, DefaultFormats}
+import org.json4s.{CustomSerializer, DateFormat, DefaultFormats, JField, JObject, JString}
 import org.json4s.jackson.{JsonMethods, Serialization}
 import com.inkenkun.x1.virtual.market.stock.{Candle, Stock}
+import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, BoS, How, SoL}
 import com.inkenkun.x1.virtual.market.user.{Account, Contract}
+import com.inkenkun.x1.virtual.market.user.Contracts.Status
 
 object implicits {
 
@@ -24,7 +26,8 @@ object implicits {
       override def parse( s: String ): Option[Date] = Some( timestampFormat.parse( s ) )
       override def format( d: Date ): String = timestampFormat.format( d )
     }
-  }
+  } + new AccTypeSerializer + new BoSSerializer + new HowSerializer + new SoLSerializer + new StatusSerializer
+  
 
   implicit class JsonSerializable[T](val a: T) extends AnyVal {
     def toJson(implicit serializer: JsonSerializer[T]): String =
@@ -72,4 +75,45 @@ object implicits {
     def toJson(a: List[String]): String = Serialization.write(a)
     def fromJson(json: String): List[String] = JsonMethods.parse(json).extract[List[String]]
   }
+
+
+  class AccTypeSerializer extends CustomSerializer[AccType]( format => ({
+      case JString( v ) =>
+        AccType( v )
+    }, {
+      case x: AccType =>
+        JString( x.value )
+    }) )
+
+  class BoSSerializer extends CustomSerializer[BoS]( format => ({
+      case JString( v ) =>
+        BoS( v )
+    }, {
+      case x: BoS =>
+        JString( x.value )
+    }) )
+
+  class HowSerializer extends CustomSerializer[How]( format => ({
+      case JString( v ) =>
+        How( v )
+    }, {
+      case x: How =>
+        JString( x.value )
+    }) )
+
+  class SoLSerializer extends CustomSerializer[SoL]( format => ({
+      case JString( v ) =>
+        SoL( v )
+    }, {
+      case x: SoL =>
+        JString( x.value )
+    }) )
+
+  class StatusSerializer extends CustomSerializer[Status]( format => ({
+      case JString( v ) =>
+        Status( v )
+    }, {
+      case x: Status =>
+        JString( x.value )
+    }) )
 }
