@@ -4,7 +4,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.Actor
 import akka.pattern.ask
 import org.joda.time.{DateTime, Duration => JodaDuration}
 
@@ -30,7 +30,7 @@ object Manager extends RedisHandler {
       case Success(s) =>
         setToRedis( prefixWith( adjustedContract.jobId ), adjustedContract.toJson )
         if ( contract.how.isMarket ) {
-          TransactionManager ! contract.jobId
+          TransactionManager ! adjustedContract.jobId
         }
         else {
           val now = marketNow
@@ -65,26 +65,20 @@ object Manager extends RedisHandler {
 
       val reg = AccountsManager ? ( "commit", contract )
       reg.mapTo[Try[Boolean]].onComplete {
-        case Success(s) => TransactionManager ! ( "commited.", s"manager.commit.$jobId" )
-        case Failure(e) => TransactionManager ! ( e, s"manager.commit.$jobId" )
+        case Success(s) => LogManager ! Log( "commited.", s"manager.commit.$jobId" )
+        case Failure(e) => LogManager ! Log( "", s"manager.commit.$jobId", e = Some( e ) )
       }
       Await.result( reg, Duration.Inf )
     }
   }
 
-  class JobActor extends Actor with ActorLogging {
+  class JobActor extends Actor {
     def receive = {
       case ( contract: Contract ) =>
         start( contract )
 
       case ( jobId: String ) =>
         commit( jobId )
-
-      case ( message: String, tag: String ) =>
-        log.info( message, tag )
-
-      case ( e: Exception, tag: String ) =>
-        log.error( e, tag )
     }
   }
 }
