@@ -29,6 +29,7 @@ package object market {
   val CandleFetcher      = system.actorOf( Props[Candles.FetchActor], "CandlesFetcher" )
   val AccountsManager    = system.actorOf( Props[Accounts.ManagerActor], "AccountsManager" )
   val TransactionManager = system.actorOf( Props[transaction.Manager.JobActor], "TransactionManager" )
+  val LogManager         = system.actorOf( Props[Log.ManagerActor], "LogManage" )
 
   implicit val marketStart = new DateTime( startMills )
 
