@@ -52,7 +52,7 @@ object Candle extends SQLSyntaxSupport[Candle] {
   
   def apply( rs: WrappedResultSet ): Candle =
     new Candle(
-      time   = rs.date( "time" ),
+      time   = rs.jodaDateTime( "time" ).toDate,
       market = rs.string( "market" ),
       code   = rs.string( "code" ),
       open   = rs.bigDecimal( "open" ),
@@ -100,7 +100,7 @@ object Candles extends MySQLHandler {
         where
           code = {code}
           and time >= {start}
-          and time >= {end}
+          and time <= {end}
         order by
           time asc
       """).bindByName(
@@ -115,7 +115,7 @@ object Candles extends MySQLHandler {
       dict + ( stock.code -> candles.toVector )
     }
 
-    status = s"fetch $table start"
+    status = s"fetch $table end"
     println( status )
     
     candles
