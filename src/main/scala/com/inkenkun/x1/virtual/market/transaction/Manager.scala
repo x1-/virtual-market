@@ -6,7 +6,7 @@ import scala.util.{Failure, Success, Try}
 
 import akka.actor.{Actor, ActorLogging}
 import akka.pattern.ask
-import org.joda.time.{Duration => JodaDuration}
+import org.joda.time.{DateTime, Duration => JodaDuration}
 
 import com.inkenkun.x1.virtual.market.stock.Candles
 import com.inkenkun.x1.virtual.market.redis.{Handler => RedisHandler}
@@ -34,7 +34,7 @@ object Manager extends RedisHandler {
         }
         else {
           val now = marketNow
-          val duration = new JodaDuration( now, contract.expiration )
+          val duration = new JodaDuration( now, new DateTime( contract.expiration ) )
           system.scheduler.scheduleOnce(
             duration.plus( 1000L * 30 ).getMillis millisecond,
             TransactionManager,
@@ -56,7 +56,7 @@ object Manager extends RedisHandler {
       preContract   = contractJson.parseAs[Contract]
     } yield {
       val contract =
-        if ( preContract.how.isLimit && !Candles.isReached( preContract.code, preContract.price, preContract.startTime, preContract.expiration ) )
+        if ( preContract.how.isLimit && !Candles.isReached( preContract.code, preContract.price, preContract.startTime, new DateTime( preContract.expiration ) ) )
           preContract.copy(
             status = Contracts.Status.impossible
           )

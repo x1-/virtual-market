@@ -1,5 +1,7 @@
 package com.inkenkun.x1.virtual.market.user
 
+import java.util.Date
+
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
@@ -7,11 +9,12 @@ import org.joda.time.DateTime
 import scalikejdbc.{SQLSyntaxSupport, WrappedResultSet}
 
 import com.inkenkun.x1.virtual.market.stock.Candles
-import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, BoS, How, SoL}
+import com.inkenkun.x1.virtual.market.transaction.{BoS, How, SoL, Account => AccType}
+import com.inkenkun.x1.virtual.market.user.Contracts.Status
 
 case class Contract (
   userId     : String,
-  market     : String = "TYO",
+  market     : String,
   code       : String,
   price      : BigDecimal,
   volume     : Long,
@@ -19,9 +22,9 @@ case class Contract (
   sol        : SoL,
   how        : How,
   bos        : BoS,
-  expiration : DateTime,
-  status     : Contracts.Status = Contracts.Status.notYet,
-  id         : Option[Int] = None
+  expiration : Date,
+  status     : Contracts.Status,
+  id         : Option[Int]
 ) {
   import com.inkenkun.x1.virtual.market._
 
@@ -45,7 +48,7 @@ case class Contract (
     if ( volume % 100 != 0 ) {
       errors += "単元は100株単位で指定してください。"
     }
-    if ( expiration.isBefore( startTime ) ) {
+    if ( new DateTime( expiration ).isBefore( startTime ) ) {
       errors += s"有効期限が過ぎています。 現在時刻:${ startTime.toString( timestampFormat ) }"
     }
     errors.toList
@@ -88,6 +91,22 @@ case class Contract (
 }
 
 object Contract extends SQLSyntaxSupport[Contract] {
+  def apply(
+    userId    : String,
+    market    : String = "TYO",
+    code      : String,
+    price     : BigDecimal,
+    volume    : Long = 100,
+    account   : AccType,
+    sol       : SoL,
+    how       : How,
+    bos       : BoS,
+    expiration: DateTime,
+    status    : Status = Contracts.Status.notYet,
+    id        : Option[Int] = None
+  ): Contract =
+    new Contract( userId, market, code, price, volume, account, sol, how, bos, expiration.toDate, status, id )
+
   def apply( rs: WrappedResultSet ): Contract =
     new Contract(
       userId     = rs.string( "user_id" ),
@@ -99,7 +118,7 @@ object Contract extends SQLSyntaxSupport[Contract] {
       sol        = SoL( rs.string( "short_or_long" ) ),
       how        = How( rs.string( "how" ) ),
       bos        = BoS( rs.string( "buy_or_sell" ) ),
-      expiration = rs.jodaDateTime( "expiration" ),
+      expiration = rs.jodaDateTime( "expiration" ).toDate,
       status     = Contracts.Status( rs.string( "status" ) ),
       id         = rs.intOpt( "id" )
     )

@@ -7,7 +7,7 @@ import scalikejdbc.{SQLSyntaxSupport, WrappedResultSet}
 
 import com.inkenkun.x1.virtual.market.mysql.{Handler => MySQLHandler}
 import com.inkenkun.x1.virtual.market.redis.{Handler => RedisHandler}
-import com.inkenkun.x1.virtual.market.transaction.{Account => AccType, BoS, SoL}
+import com.inkenkun.x1.virtual.market.transaction.{BoS, SoL, Account => AccType}
 
 case class Account(
   userId          : String = "",
@@ -67,7 +67,8 @@ case class Account(
       code   = contract.code,
       price  = contract.price,
       volume = contract.volume,
-      soL    = contract.sol
+      soL    = contract.sol,
+      id     = None
     )
     if ( contract.bos.isBuy && contract.status.isDone ) {
       val change = findStock( contract.market, contract.code ) match {

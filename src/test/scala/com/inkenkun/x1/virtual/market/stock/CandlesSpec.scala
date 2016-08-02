@@ -1,5 +1,7 @@
 package com.inkenkun.x1.virtual.market.stock
 
+import java.util.Date
+
 import org.specs2.mutable.Specification
 
 class CandlesSpec extends Specification {
@@ -9,26 +11,26 @@ class CandlesSpec extends Specification {
   "Candle" should {
     "serialized with DateTime" in {
       val candles = Vector(
-        Candle( Vector(
-          "1467465276",
+        Candle(
+          new Date,
           "TYO",
           "1332",
-          "567",
-          "570",
-          "552",
-          "567",
-          "123400"
-        ) ),
-        Candle( Vector(
-          "1467551676",
+          BigDecimal( 567 ),
+          BigDecimal( 570 ),
+          BigDecimal( 552 ),
+          BigDecimal( 567 ),
+          123400L
+        ),
+        Candle(
+          new Date,
           "TYO",
           "1332",
-          "567",
-          "575",
-          "567",
-          "575",
-          "223400"
-        ) )
+          BigDecimal( 567 ),
+          BigDecimal( 575 ),
+          BigDecimal( 567 ),
+          BigDecimal( 575 ),
+          223400L
+        )
       )
       val json = candles.toJson
       println( json )
