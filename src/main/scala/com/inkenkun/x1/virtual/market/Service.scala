@@ -24,7 +24,7 @@ trait Service extends HttpService {
     path( "time" ) {
       get {
         respondWithMediaType( `application/json` ) {
-          complete( s"""{ "time": "${ marketTime( baseTime, System.currentTimeMillis )( marketStart ).toString( timestampFormat ) }" }""" )
+          complete( s"""{ "time": "${ marketNow.toString( timestampFormat ) }" }""" )
         }
       }
     } ~
