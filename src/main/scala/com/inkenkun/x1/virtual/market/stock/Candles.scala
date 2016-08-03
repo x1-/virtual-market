@@ -52,7 +52,7 @@ object Candle extends SQLSyntaxSupport[Candle] {
   
   def apply( rs: WrappedResultSet ): Candle =
     new Candle(
-      time   = rs.jodaDateTime( "time" ).toDate,
+      time   = rs.jodaDateTime( "time" ).plusHours(9).toDate,
       market = rs.string( "market" ),
       code   = rs.string( "code" ),
       open   = rs.bigDecimal( "open" ),
@@ -166,7 +166,7 @@ object Candles extends MySQLHandler {
     val all: Vector[Candle] =
       searchByTick( code, startDate, endDate, Tick.m1 ) ++
       searchByTick( code, startDate, endDate, Tick.m5 ) ++
-      searchByTick( code, startDate, endDate, Tick.d1 ) ++ latest( code, startDate.toDate ).map( List(_) ).getOrElse( Nil )
+      searchByTick( code, startDate, endDate, Tick.d1 )
     val highest = all.maxBy( _.high ).high
     val lowest  = all.minBy( _.low ).low
 

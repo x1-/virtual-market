@@ -55,7 +55,7 @@ package object market {
       .withSecondOfMinute( now.getSecondOfMinute )
   }
 
-  def marketNow: DateTime = marketTime( baseTime, System.currentTimeMillis )
+  def marketNow: DateTime = marketTime( baseTime, baseTime.plus( System.currentTimeMillis - startMills ).getMillis )
 
   def adjustDay( targetDate: DateTime )( implicit marketStart: DateTime ): DateTime = {
 

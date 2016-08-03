@@ -132,13 +132,12 @@ object Accounts extends MySQLHandler with RedisHandler {
   }
 
   private def commitContract( contract: Contract ): Try[Boolean] = {
-    val done = contract.copy( status = Contracts.Status.done )
     val user    = retrieve( contract.userId )
     val newUser = user.copy(
-      availableCash   = user.calcAvailableCash( done ),
-      availableCredit = user.calcAvailableCredit( done ),
-      holdings        = user.calcHoldings( done ),
-      contracted      = user.contracted :+ done
+      availableCash   = user.calcAvailableCash( contract ),
+      availableCredit = user.calcAvailableCredit( contract ),
+      holdings        = user.calcHoldings( contract ),
+      contracted      = user.contracted :+ contract,
       notContracted   = user.notContracted.filterNot( _.jobId == contract.jobId )
     )
     UserDao.update( newUser )
