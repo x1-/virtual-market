@@ -69,7 +69,7 @@ object UserDao extends MySQLHandler with RedisHandler {
     }
   }
   
-  private[user] def reset( userId: userId ): Try[Unit] = { Try{
+  private[user] def reset( userId: userId ): Try[Unit] = { Try {
     getFromRedis( userId ) match {
       case Some(a) =>
         val oldA = a.parseAs[Account]
@@ -79,15 +79,17 @@ object UserDao extends MySQLHandler with RedisHandler {
     }
   }}
 
-  private[user] def save: Unit = fullFetchAll.foreach { ac =>
-    val account = retrieve( ac.userId )
+  private[user] def save: Try[Unit] = DB localTx { implicit session => Try {
+    fullFetchAll.foreach { ac =>
 
-    DB localTx { implicit session => Try {
+      val account = retrieve( ac.userId )
+
       sql"""
          update accounts set
             available_cash   = ${account.availableCash}
            ,available_credit = ${account.availableCredit}
            ,balance          = ${account.balance}
+           ,loan             = ${account.loan}
            ,updated_at       = CURRENT_TIMESTAMP()
          where
            user_id = ${account.userId}
@@ -166,6 +168,6 @@ object UserDao extends MySQLHandler with RedisHandler {
              );
           """.update().apply()
       }}
-    }}
-  }
+    }
+  }}
 }

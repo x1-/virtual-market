@@ -3,10 +3,12 @@ package com.inkenkun.x1.virtual.market.user
 import scala.util.Try
 
 import akka.actor.{Actor, ActorLogging}
+import org.joda.time.DateTime
 import scalikejdbc.{SQLSyntaxSupport, WrappedResultSet}
 
 import com.inkenkun.x1.virtual.market.mysql.{Handler => MySQLHandler}
 import com.inkenkun.x1.virtual.market.redis.{Handler => RedisHandler}
+import com.inkenkun.x1.virtual.market.stock.Candles
 import com.inkenkun.x1.virtual.market.transaction.{BoS, SoL, Account => AccType}
 
 case class Account(
@@ -15,51 +17,83 @@ case class Account(
   availableCash   : BigDecimal = BigDecimal( 3000000 ),
   availableCredit : BigDecimal = BigDecimal( 6000000 ),
   balance         : BigDecimal = BigDecimal( 3000000 ),
+  loan            : BigDecimal = BigDecimal( 0 ),
   holdings        : List[Holding] = List.empty[Holding],
   contracted      : List[Contract] = List.empty[Contract],
   notContracted   : List[Contract] = List.empty[Contract]
 ) {
-  def calcAvailableCash( contract: Contract ): BigDecimal = {
+
+  def reBalance( now: DateTime ): Account = {
+
+    val performance = holdings.foldLeft( BigDecimal(0) ) { ( acc, holding ) =>
+      val stock = Candles.latest( holding.code, now.toDate )
+      acc + stock.fold( BigDecimal(0) )( s => s.close * holding.volume )
+    }
+    val cash = if ( loan < 0 ) availableCash - loan else availableCash
+    val adv  = if ( loan < 0 ) BigDecimal(0) else loan
+
+    this.copy(
+      availableCash = cash,
+      balance       = performance + cash,
+      loan          = adv
+    )
+  }
+
+
+  private[user] def calcAvailableCash( contract: Contract ): BigDecimal = {
 
     val commitPrice = contract.price * contract.volume
-    val maybeStock  = findStock( contract.market, contract.code )
 
-    ( contract.bos, contract.status, contract.sol, contract.account ) match {
-      case ( BoS.buy,  Contracts.Status.done,       SoL.long,  AccType.cash   ) => availableCash
-      case ( BoS.buy,  Contracts.Status.notYet,     SoL.long,  AccType.cash   ) => availableCash - commitPrice
-      case ( BoS.buy,  Contracts.Status.impossible, SoL.long,  AccType.cash   ) => availableCash + commitPrice
+    ( contract.account, contract.bos, contract.status, contract.sol ) match {
+      case ( AccType.credit, _,        _,                           _          ) => availableCredit
+      case ( AccType.cash,   BoS.buy,  Contracts.Status.done,       SoL.long   ) => availableCash
+      case ( AccType.cash,   BoS.buy,  Contracts.Status.notYet,     SoL.long   ) => availableCash - commitPrice
+      case ( AccType.cash,   BoS.buy,  Contracts.Status.impossible, SoL.long   ) => availableCash + commitPrice
 
-      case ( BoS.sell, Contracts.Status.done,       SoL.long,  AccType.cash   ) => availableCash + commitPrice
-      case ( BoS.sell, Contracts.Status.notYet,     _,         AccType.cash   ) => availableCash
-      case ( BoS.sell, Contracts.Status.impossible, _,         AccType.cash   ) => availableCash
+      case ( AccType.cash,   BoS.sell, Contracts.Status.done,       SoL.long   ) => availableCash + commitPrice
+      case ( AccType.cash,   BoS.sell, Contracts.Status.notYet,     _          ) => availableCash
+      case ( AccType.cash,   BoS.sell, Contracts.Status.impossible, _          ) => availableCash
 
-      case ( _,        _,                           _,         AccType.credit ) => availableCredit
     }
   }
 
-  def calcAvailableCredit( contract: Contract ): BigDecimal = {
+  private[user] def calcAvailableCredit( contract: Contract ): BigDecimal = {
 
     val commitPrice = contract.price * contract.volume
     val maybeStock  = findStock( contract.market, contract.code )
 
-    ( contract.bos, contract.status, contract.sol, contract.account ) match {
-      case ( BoS.buy,  Contracts.Status.done,       _,         AccType.credit  ) => availableCredit
-      case ( BoS.buy,  Contracts.Status.notYet,     _,         AccType.credit  ) => availableCredit - commitPrice
-      case ( BoS.buy,  Contracts.Status.impossible, _,         AccType.credit  ) => availableCredit + commitPrice
+    ( contract.account, contract.bos, contract.status, contract.sol ) match {
+      case ( AccType.cash,    _,        _,                           _         ) => availableCash
+      case ( AccType.credit,  BoS.buy,  Contracts.Status.done,       _         ) => availableCredit
+      case ( AccType.credit,  BoS.buy,  Contracts.Status.notYet,     _         ) => availableCredit - commitPrice
+      case ( AccType.credit,  BoS.buy,  Contracts.Status.impossible, _         ) => availableCredit + commitPrice
 
-      case ( BoS.sell, Contracts.Status.done,       SoL.long,  AccType.credit  ) => availableCredit + commitPrice
-      case ( BoS.sell, Contracts.Status.done,       SoL.short, AccType.credit ) =>
+      case ( AccType.credit,  BoS.sell, Contracts.Status.done,       SoL.long  ) => availableCredit + commitPrice
+      case ( AccType.credit,  BoS.sell, Contracts.Status.done,       SoL.short ) =>
         val stock    = maybeStock.get
         val original = stock.price * contract.volume
         val profit   = original - commitPrice
         availableCredit + original + profit
-      case ( BoS.sell, Contracts.Status.notYet,     _,         AccType.credit ) => availableCredit
-      case ( BoS.sell, Contracts.Status.impossible, _,         AccType.credit ) => availableCredit
-      case ( _,        _,                           _,         AccType.cash   ) => availableCash
+      case ( AccType.credit,  BoS.sell, Contracts.Status.notYet,     _         ) => availableCredit
+      case ( AccType.credit,  BoS.sell, Contracts.Status.impossible, _         ) => availableCredit
     }
   }
 
-  def calcHoldings( contract: Contract ): List[Holding] = {
+  private[user] def calcLoan( contract: Contract ): BigDecimal = {
+
+    val commitPrice = contract.price * contract.volume
+
+    ( contract.account, contract.bos, contract.status, contract.sol ) match {
+      case ( AccType.cash,    _,        _,                           _         ) => loan
+      case ( AccType.credit,  _,        Contracts.Status.notYet,     _         ) => loan
+      case ( AccType.credit,  _,        Contracts.Status.impossible, _         ) => loan
+
+      case ( AccType.credit,  BoS.buy,  Contracts.Status.done,       _         ) => loan + commitPrice
+      case ( AccType.credit,  BoS.sell, Contracts.Status.done,       _         ) => loan - commitPrice
+    }
+  }
+
+  private[user] def calcHoldings( contract: Contract ): List[Holding] = {
     val holding = Holding (
       userId = contract.userId,
       time   = contract.expiration,
@@ -115,11 +149,12 @@ object Account extends SQLSyntaxSupport[Account] {
 
 object Accounts extends MySQLHandler with RedisHandler {
 
-  import com.inkenkun.x1.virtual.market.userId
+  import com.inkenkun.x1.virtual.market._
 
   lazy val initialUsers: List[Account] = UserDao.fullFetchAll
 
   def retrieve( id: userId ): Account = UserDao.retrieve( id )
+  def save(): Try[Unit] = UserDao.save
 
   private def stageContract( contract: Contract ): Try[Boolean] = {
     val user    = retrieve( contract.userId )
@@ -139,7 +174,7 @@ object Accounts extends MySQLHandler with RedisHandler {
       holdings        = user.calcHoldings( contract ),
       contracted      = user.contracted :+ contract,
       notContracted   = user.notContracted.filterNot( _.jobId == contract.jobId )
-    )
+    ).reBalance( marketNow )
     UserDao.update( newUser )
   }
 
