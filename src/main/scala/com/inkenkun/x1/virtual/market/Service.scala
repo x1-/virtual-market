@@ -4,10 +4,11 @@ import akka.actor.Actor
 import spray.http.MediaTypes._
 import spray.routing._
 import spray.routing.RejectionHandler.Default
-
 import com.inkenkun.x1.virtual.market.stock._
 import com.inkenkun.x1.virtual.market.transaction._
 import com.inkenkun.x1.virtual.market.user.{Accounts, Contract, Contracts}
+
+import scala.util.{Failure, Success}
 
 class ServiceActor extends Actor with Service {
 
@@ -117,6 +118,22 @@ trait Service extends HttpService {
               </html>
             )
           }
+        }
+      }
+    } ~
+    path( "user" / "save" ) {
+      get {
+        respondWithMediaType( `text/html` ) {
+          val result = Accounts.save() match {
+            case Success(s) => "Status: done"
+            case Failure(e) => e.getMessage
+          }
+          complete(
+            <html>
+              <head></head>
+              <body><p>result</p></body>
+            </html>
+          )
         }
       }
     } ~
