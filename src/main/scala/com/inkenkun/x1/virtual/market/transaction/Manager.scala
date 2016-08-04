@@ -61,7 +61,9 @@ object Manager extends RedisHandler {
             status = Contracts.Status.impossible
           )
         else
-          preContract
+          preContract.copy(
+            status = Contracts.Status.done
+          )
 
       val reg = AccountsManager ? ( "commit", contract )
       reg.mapTo[Try[Boolean]].onComplete {

@@ -166,7 +166,7 @@ object Candles extends MySQLHandler {
     val all: Vector[Candle] =
       searchByTick( code, startDate, endDate, Tick.m1 ) ++
       searchByTick( code, startDate, endDate, Tick.m5 ) ++
-      searchByTick( code, startDate, endDate, Tick.d1 ) ++ latest( code, startDate.toDate ).map( List(_) ).getOrElse( Nil )
+      searchByTick( code, startDate, endDate, Tick.d1 )
     val highest = all.maxBy( _.high ).high
     val lowest  = all.minBy( _.low ).low
 

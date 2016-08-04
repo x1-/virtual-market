@@ -24,7 +24,7 @@ trait Service extends HttpService {
     path( "time" ) {
       get {
         respondWithMediaType( `application/json` ) {
-          complete( s"""{ "time": "${ marketTime( baseTime, System.currentTimeMillis )( marketStart ).toString( timestampFormat ) }" }""" )
+          complete( s"""{ "time": "${ marketNow.toString( timestampFormat ) }" }""" )
         }
       }
     } ~
@@ -154,7 +154,8 @@ trait Service extends HttpService {
               sol        = SoL( sol ),
               how        = How( how ),
               bos        = BoS.buy,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
+              startMills = now.getMillis
             )
             val messages = contract.validate
 
@@ -186,7 +187,8 @@ trait Service extends HttpService {
               sol        = SoL( sol ),
               how        = How( how ),
               bos        = BoS.sell,
-              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now
+              expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
+              startMills = now.getMillis
             )
             val messages = contract.validate
 

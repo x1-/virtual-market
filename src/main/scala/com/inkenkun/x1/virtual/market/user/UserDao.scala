@@ -139,6 +139,7 @@ object UserDao extends MySQLHandler with RedisHandler {
           sql"""
              insert into account_contracts (
                 user_id
+               ,job_id
                ,market
                ,code
                ,price
@@ -151,6 +152,7 @@ object UserDao extends MySQLHandler with RedisHandler {
                ,status
              ) values (
                 ${contract.userId}
+               ,${contract.jobId}
                ,${contract.market}
                ,${contract.code}
                ,${contract.price}

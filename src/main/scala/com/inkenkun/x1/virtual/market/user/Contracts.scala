@@ -8,12 +8,14 @@ import scala.util.Random
 import org.joda.time.DateTime
 import scalikejdbc.{SQLSyntaxSupport, WrappedResultSet}
 
+import com.inkenkun.x1.virtual.market._
 import com.inkenkun.x1.virtual.market.stock.Candles
 import com.inkenkun.x1.virtual.market.transaction.{BoS, How, SoL, Account => AccType}
 import com.inkenkun.x1.virtual.market.user.Contracts.Status
 
 case class Contract (
   userId     : String,
+  jobId      : String,
   market     : String,
   code       : String,
   price      : BigDecimal,
@@ -24,13 +26,12 @@ case class Contract (
   bos        : BoS,
   expiration : Date,
   status     : Contracts.Status,
-  id         : Option[Int]
+  id         : Option[Int],
+  startMills : Long
 ) {
-  import com.inkenkun.x1.virtual.market._
 
-  lazy val startTime = marketNow
+  lazy val startTime = new DateTime( startMills )
 
-  lazy val jobId = Random.nextInt( 99999999 ).toString
   lazy val user  = Accounts.retrieve( userId )
   lazy val stock = Candles.latest( code, startTime.plusMinutes( 3 ).toDate )
   lazy val unit  = if ( how.isMarket ) stock.map( _.high ).getOrElse( BigDecimal(0) ) else price
@@ -93,6 +94,7 @@ case class Contract (
 object Contract extends SQLSyntaxSupport[Contract] {
   def apply(
     userId    : String,
+    jobId     : String = Random.nextInt( 99999999 ).toString,
     market    : String = "TYO",
     code      : String,
     price     : BigDecimal,
@@ -103,13 +105,15 @@ object Contract extends SQLSyntaxSupport[Contract] {
     bos       : BoS,
     expiration: DateTime,
     status    : Status = Contracts.Status.notYet,
-    id        : Option[Int] = None
+    id        : Option[Int] = None,
+    startMills: Long = 0
   ): Contract =
-    new Contract( userId, market, code, price, volume, account, sol, how, bos, expiration.toDate, status, id )
+    new Contract( userId, jobId, market, code, price, volume, account, sol, how, bos, expiration.toDate, status, id, startMills )
 
   def apply( rs: WrappedResultSet ): Contract =
     new Contract(
       userId     = rs.string( "user_id" ),
+      jobId      = rs.string( "job_id" ),
       market     = rs.string( "market" ),
       code       = rs.string( "code" ),
       price      = rs.bigDecimal( "price" ),
@@ -120,7 +124,8 @@ object Contract extends SQLSyntaxSupport[Contract] {
       bos        = BoS( rs.string( "buy_or_sell" ) ),
       expiration = rs.jodaDateTime( "expiration" ).toDate,
       status     = Contracts.Status( rs.string( "status" ) ),
-      id         = rs.intOpt( "id" )
+      id         = rs.intOpt( "id" ),
+      startMills = 0
     )
 }
 
