@@ -45,7 +45,7 @@ case class Account(
     val commitPrice = contract.price * contract.volume
 
     ( contract.account, contract.bos, contract.status, contract.sol ) match {
-      case ( AccType.credit, _,        _,                           _          ) => availableCredit
+      case ( AccType.credit, _,        _,                           _          ) => availableCash
       case ( AccType.cash,   BoS.buy,  Contracts.Status.done,       SoL.long   ) => availableCash
       case ( AccType.cash,   BoS.buy,  Contracts.Status.notYet,     SoL.long   ) => availableCash - commitPrice
       case ( AccType.cash,   BoS.buy,  Contracts.Status.impossible, SoL.long   ) => availableCash + commitPrice
@@ -63,7 +63,7 @@ case class Account(
     val maybeStock  = findStock( contract.market, contract.code )
 
     ( contract.account, contract.bos, contract.status, contract.sol ) match {
-      case ( AccType.cash,    _,        _,                           _         ) => availableCash
+      case ( AccType.cash,    _,        _,                           _         ) => availableCredit
       case ( AccType.credit,  BoS.buy,  Contracts.Status.done,       _         ) => availableCredit
       case ( AccType.credit,  BoS.buy,  Contracts.Status.notYet,     _         ) => availableCredit - commitPrice
       case ( AccType.credit,  BoS.buy,  Contracts.Status.impossible, _         ) => availableCredit + commitPrice

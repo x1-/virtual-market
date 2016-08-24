@@ -25,23 +25,23 @@ object Manager extends RedisHandler {
 
     val adjustedContract = if ( contract.how.isMarket ) contract.copy( price = contract.unit ) else contract
 
-    val stage = AccountsManager ? ( "stage", contract )
+    val stage = AccountsManager ? ( "stage", adjustedContract )
     stage.mapTo[Try[Boolean]].onComplete {
       case Success(s) =>
         setToRedis( prefixWith( adjustedContract.jobId ), adjustedContract.toJson )
-        if ( contract.how.isMarket ) {
+        if ( adjustedContract.how.isMarket ) {
           TransactionManager ! adjustedContract.jobId
         }
         else {
           val now = marketNow
-          val duration = new JodaDuration( now, new DateTime( contract.expiration ) )
+          val duration = new JodaDuration( now, new DateTime( adjustedContract.expiration ) )
           system.scheduler.scheduleOnce(
-            duration.plus( 1000L * 30 ).getMillis millisecond,
+            duration.plus( 1000L * 10 ).getMillis millisecond,
             TransactionManager,
-            contract.jobId
+            adjustedContract.jobId
           )
         }
-      case Failure(e) => TransactionManager ! ( e, s"manager.start.${contract.userId}" )
+      case Failure(e) => TransactionManager ! ( e, s"manager.start.${adjustedContract.userId}" )
     }
     Await.result( stage, Duration.Inf )
   }
