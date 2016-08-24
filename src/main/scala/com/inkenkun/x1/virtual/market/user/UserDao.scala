@@ -70,11 +70,11 @@ object UserDao extends MySQLHandler with RedisHandler {
   }
   
   private[user] def reset( userId: userId ): Try[Unit] = { Try {
-    getFromRedis( userId ) match {
+    getFromRedis( prefixWith( userId ) ) match {
       case Some(a) =>
         val oldA = a.parseAs[Account]
         val newA = Account( userId = oldA.userId, userName = oldA.userName )
-        setToRedis( userId, newA.toJson )
+        setToRedis( prefixWith( userId ), newA.toJson )
       case None => {}
     }
   }}

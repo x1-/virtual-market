@@ -174,7 +174,7 @@ trait Service extends HttpService {
               expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
               startMills = now.getMillis
             )
-            val messages = contract.validate
+            val messages = contract.validateAtBuying
 
             if ( messages.isEmpty ) {
               TransactionManager ! contract
@@ -207,7 +207,7 @@ trait Service extends HttpService {
               expiration = expiration map timestampFormat.parseDateTime _ getOrElse now,
               startMills = now.getMillis
             )
-            val messages = contract.validate
+            val messages = contract.validateAtSelling
 
             if ( messages.isEmpty ) {
               TransactionManager ! contract
