@@ -121,6 +121,21 @@ trait Service extends HttpService {
         }
       }
     } ~
+    path( "user" / "reset" / "notcontracted" ) {
+      get {
+        parameters( 'id ) { id =>
+          AccountsManager ! ( "reset/notcontracted", id )
+          respondWithMediaType( `text/html` ) {
+            complete(
+              <html>
+                <head></head>
+                <body><p>Status: resetting not contracted</p></body>
+              </html>
+            )
+          }
+        }
+      }
+    } ~
     path( "user" / "save" ) {
       get {
         respondWithMediaType( `text/html` ) {

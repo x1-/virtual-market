@@ -189,6 +189,23 @@ object Accounts extends MySQLHandler with RedisHandler {
 
   private def reset( userId: userId ): Try[Unit] = UserDao.reset( userId )
 
+  private def resetNotContract( userId: userId ): Try[Boolean] = {
+    val user    = retrieve( userId )
+    val backedCash = user.notContracted
+        .filter( contract => contract.account.isCash )
+        .foldLeft( BigDecimal(0) ) { ( acc, contract ) => contract.price * contract.volume + acc }
+    val backedCredit = user.notContracted
+        .filter( contract => contract.account.isCredit )
+        .foldLeft( BigDecimal(0) ) { ( acc, contract ) => contract.price * contract.volume + acc }
+
+    val newUser = user.copy(
+      availableCash   = user.availableCash   + backedCash,
+      availableCredit = user.availableCredit + backedCredit,
+      notContracted   = List.empty[Contract]
+    )
+    UserDao.update( newUser )
+  }
+
 
   class ManagerActor extends Actor with ActorLogging {
     def receive = {
@@ -205,6 +222,11 @@ object Accounts extends MySQLHandler with RedisHandler {
       case ( "reset", userId: String ) =>
         reset( userId ).recover {
           case e: Throwable => log.error( e, "manager.reset" )
+        }
+
+      case ( "reset/notcontracted", userId: String ) =>
+        resetNotContract( userId ).recover {
+          case e: Throwable => log.error( e, "manager.reset/notcontracted" )
         }
 
       case ( "stage", contract: Contract ) =>
