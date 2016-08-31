@@ -146,7 +146,7 @@ object Candles extends MySQLHandler {
   def searchByTick( code: String, startDate: DateTime, endDate: DateTime, tick: Tick ): Vector[Candle] = {
 
     val start = startDate.getMillis
-    val end   = endDate.getMillis
+    val end   = math.min( endDate.getMillis, marketNow.getMillis )
 
     val ticks = tick match {
       case Tick.m1 => candles1m
