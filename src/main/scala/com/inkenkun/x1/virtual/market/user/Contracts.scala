@@ -46,6 +46,9 @@ case class Contract (
     if ( stock.isEmpty ) {
       errors += s"銘柄コードが正しくありません。指定された銘柄コード: $code, http://host/stocks/available で利用可能な銘柄を確認できます。"
     }
+    if ( !stock.exists( _.market == "TYO" ) ) {
+      errors += s"金融指数の売買はできません。指定されたコード: $code, http://host/stocks/available で利用可能な銘柄を確認できます。"
+    }
     if ( volume % 100 != 0 ) {
       errors += "単元は100株単位で指定してください。"
     }
