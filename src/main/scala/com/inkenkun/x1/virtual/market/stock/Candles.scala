@@ -76,15 +76,15 @@ object Candles extends MySQLHandler {
 
   
   def fetch1m( start: DateTime, end: DateTime ): Unit = synchronized {
-    candles1m = fetch( "candle_1min", start, end ) ++ fetch( "index_1min", start, end )
+    candles1m = fetch( "candle_1min", start, end )
   }
 
   def fetch5m( start: DateTime, end: DateTime ): Unit = synchronized {
-    candles5m = fetch( "candle_5min", start, end ) ++ fetch( "index_5min", start, end )
+    candles5m = fetch( "candle_5min", start, end )
   }
 
   def fetch1d( start: DateTime, end: DateTime ): Unit = synchronized {
-    candles1d = fetch( "candle_1day", start, end ) ++ fetch( "index_1day", start, end )
+    candles1d = fetch( "candle_1day", start, end )
   }
 
   private def fetch( table: String, start: DateTime, end: DateTime ): Map[code, Vector[Candle]] = {
