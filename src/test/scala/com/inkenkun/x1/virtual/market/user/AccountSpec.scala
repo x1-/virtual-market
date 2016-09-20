@@ -77,6 +77,14 @@ class AccountSpec extends Specification {
     "return same cash when Sell and contract.status.impossible" in {
       user.calcAvailableCash( contract.copy( status = Contracts.Status.impossible, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 )
     }
+    "return cash plused profit when Sell and contract.status.done" in {
+      user.calcAvailableCash( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell, account = transaction.Account.credit ) ) must_== BigDecimal( 1000000 + ( -5d * 100 ) )
+    }
+    "return cash plused arbitrage between sold price and buyed price when Sell and contract.status.done" in {
+      user.calcAvailableCash( contract.copy(
+        code = "1333", status = Contracts.Status.done, bos = transaction.BoS.sell, sol = transaction.SoL.short, account = transaction.Account.credit
+      ) ) must_== BigDecimal( 1000000 + ( 200d - 95d ) * 100 )
+    }
   }
 
   "Account.calcAvailableCredit" should {
@@ -117,7 +125,7 @@ class AccountSpec extends Specification {
     }
 
     "return credit plused sold price when Sell and contract.status.done" in {
-      user.calcAvailableCredit( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + ( 95d * 100 ) )
+      user.calcAvailableCredit( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + ( 100d * 100 ) )
     }
     "return same credit when Sell and contract.status.notYet" in {
       user.calcAvailableCredit( contract.copy( status = Contracts.Status.notYet, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 )
@@ -151,7 +159,7 @@ class AccountSpec extends Specification {
     }
 
     "return credit plused arbitrage between sold price and buyed price when Sell and contract.status.done" in {
-      user.calcAvailableCredit( contract2.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + ( 200d - 95d ) * 100 )
+      user.calcAvailableCredit( contract2.copy( code = "1333", status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + 200d * 100 )
     }
     "return same credit when Sell and contract.status.notYet" in {
       user.calcAvailableCredit( contract2.copy( status = Contracts.Status.notYet, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 )
@@ -234,27 +242,35 @@ class AccountSpec extends Specification {
         123400L
       )
     )
+    Candles.candles1d += "1333" -> Vector(
+      Candle(
+        timestampFormat.parseDateTime( "2016-01-01 00:00:00" ).toDate,
+        "TYO",
+        "1333",
+        BigDecimal( 500 ),
+        BigDecimal( 500 ),
+        BigDecimal( 500 ),
+        BigDecimal( 500 ),
+        123400L
+      )
+    )
+
     val user = Account(
       userId     = "111111",
       userName        = "test",
-      availableCash   = BigDecimal( 1000000 ),
-      availableCredit = BigDecimal( 3000000 ),
-      balance         = BigDecimal( 1000000 ),
+      availableCash   = BigDecimal( 2980000 ),
+      availableCredit = BigDecimal( 5960000 ),
+      balance         = BigDecimal( 0 ),
       loan            = BigDecimal( 0 ),
       holdings        = List( holding1, holding2 ),
       contracted      = List.empty[Contract],
       notContracted   = List.empty[Contract]
     )
-    "return 100,000 + 1000,000 when close is 500 yen and has 200 number." in {
+    "return 100,000 + 1000,000 when close of 1332 and 1333 are 500 yen." in {
+      val profitLong  = ( 500 - 100 ) * 200
+      val profitShort = ( 200 - 500 ) * 200
       val newUser = user.reBalance( now )
-      newUser.balance must_== 1000000 + ( 500 * 200 )
-    }
-    "return 100,000 + 1000,000 + 5000 when close is 500 yen and has 200 number and loan is minus 5,000." in {
-      val newUser = user.copy( loan = BigDecimal( -5000 ) ).reBalance( now )
-      newUser.balance       must_== 1000000 + ( 500 * 200 ) + 5000
-      newUser.loan          must_== BigDecimal(0)
-      newUser.availableCash must_== 1000000 + 5000
-      
+      newUser.balance must_== ( 200 * 200 ) + ( 100 * 200 ) + profitLong + profitShort + ( user.availableCash + user.availableCredit ) - 9000000
     }
   }
 

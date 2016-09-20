@@ -29,9 +29,9 @@ case class Account(
       val stock = Candles.latest( holding.code, now.toDate )
       acc + stock.fold( BigDecimal(0) ){ s =>
         if ( holding.soL == SoL.long )
-          ( s.close - holding.price ) * holding.volume
+          s.close * holding.volume
         else
-          ( holding.price - s.close ) * holding.volume
+          ( holding.price * 2 - s.close ) * holding.volume
       }
     }
 
