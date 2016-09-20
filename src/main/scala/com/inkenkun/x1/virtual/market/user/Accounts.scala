@@ -120,7 +120,7 @@ case class Account(
         else
           Nil
       }
-      holdings.filterNot( h => h.market == holding.market && h.code == holding.code ) ++ change.getOrElse( Nil )
+      holdings.filterNot( h => h.market == holding.market && h.code == holding.code && h.soL == holding.soL ) ++ change.getOrElse( Nil )
     }
     else
       holdings

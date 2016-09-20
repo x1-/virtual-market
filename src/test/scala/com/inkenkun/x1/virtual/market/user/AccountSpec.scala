@@ -183,6 +183,15 @@ class AccountSpec extends Specification {
       market     = "TYO",
       status     = Contracts.Status.done
     )
+    val holding3 = Holding(
+      userId = "111111",
+      time   = marketNow,
+      market = "TYO",
+      code   = "1332",
+      price  = BigDecimal(110),
+      volume = 100,
+      soL    = transaction.SoL.short
+    )
     val user = Account(
       userId     = "111111",
       userName        = "test",
@@ -190,7 +199,7 @@ class AccountSpec extends Specification {
       availableCredit = BigDecimal( 1000000 ),
       balance         = BigDecimal( 1000000 ),
       loan            = BigDecimal( 0 ),
-      holdings        = List( holding1, holding2 ),
+      holdings        = List( holding1, holding2, holding3 ),
       contracted      = List.empty[Contract],
       notContracted   = List( contract.copy( status = Contracts.Status.notYet ) )
     )
@@ -198,32 +207,41 @@ class AccountSpec extends Specification {
       val stocks = user.calcHoldings( contract.copy( code = "1335" ) )
       val stock  = stocks.find( _.code == "1335" ).get
 
-      stocks.size  must_== 3
+      stocks.size  must_== 4
       stock.volume must_== 100
       stock.price  must_== BigDecimal( 95d )
     }
     "return average price when adding the same stock by different price." in {
       val stocks = user.calcHoldings( contract )
-      val stock  = stocks.find( _.code == contract.code ).get
+      val stock  = stocks.find( s => s.code == contract.code && s.soL == contract.sol ).get
 
-      stocks.size  must_== 2
+      stocks.size  must_== 3
       stock.volume must_== 300
       stock.price  must_== BigDecimal( ( 100d * 200 + 95 * 100 ) / 300 ).setScale( 3, BigDecimal.RoundingMode.HALF_UP )
     }
     "return redundunt volume when selling the half of the stock ." in {
       val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell ) )
-      val stock  = stocks.find( _.code == contract.code ).get
+      val stock  = stocks.find( s => s.code == contract.code && s.soL == contract.sol ).get
 
-      stocks.size  must_== 2
+      stocks.size  must_== 3
       stock.volume must_== 100
       stock.price  must_== BigDecimal( 100d )
     }
     "return no stock when selling the full of the stock ." in {
       val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell, volume = 200 ) )
-      val stock  = stocks.find( _.code == contract.code )
+      val stock  = stocks.find( s => s.code == contract.code && s.soL == contract.sol )
 
-      stocks.size  must_== 1
+      stocks.size  must_== 2
       stock must beNone
+    }
+    "return only the short stocks when selling the stocks of long." in {
+      val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell, volume = 200 ) )
+      val stock  = stocks.find( s => s.code == contract.code ).get
+
+      stocks.size  must_== 2
+      stock.soL must_== transaction.SoL.short
+      stock.volume must_== 100
+      stock.price  must_== BigDecimal( 110d )
     }
   }
 
