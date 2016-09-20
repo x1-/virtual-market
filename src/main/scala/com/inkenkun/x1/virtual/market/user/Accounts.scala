@@ -27,7 +27,12 @@ case class Account(
 
     val performance = holdings.foldLeft( BigDecimal(0) ) { ( acc, holding ) =>
       val stock = Candles.latest( holding.code, now.toDate )
-      acc + stock.fold( BigDecimal(0) )( s => s.close * holding.volume )
+      acc + stock.fold( BigDecimal(0) ){ s =>
+        if ( holding.soL == SoL.long )
+          ( s.close - holding.price ) * holding.volume
+        else
+          ( holding.price - s.close ) * holding.volume
+      }
     }
 
     this.copy(
@@ -50,14 +55,11 @@ case class Account(
       case ( AccType.cash,   BoS.sell, Contracts.Status.notYet      ) => availableCash
       case ( AccType.cash,   BoS.sell, Contracts.Status.impossible  ) => availableCash
 
-      case ( AccType.credit, BoS.sell, Contracts.Status.done        ) => maybeStock match {
-        case Some( stock ) =>
-          val profit = if ( contract.sol == SoL.long )
-            commitPrice - ( stock.price * contract.volume )
-          else
-            ( stock.price * contract.volume ) - commitPrice
-          availableCash + profit
-        case None => availableCash
+      case ( AccType.credit, BoS.sell, Contracts.Status.done        ) => availableCash + maybeStock.fold( BigDecimal(0) ){ stock =>
+        if ( contract.sol == SoL.long )
+          commitPrice - ( stock.price * contract.volume )
+        else
+          ( stock.price * contract.volume ) - commitPrice
       }
       case ( AccType.credit, _,        _                            ) => availableCash
     }
@@ -81,20 +83,6 @@ case class Account(
       }
       case ( AccType.credit,  BoS.sell, Contracts.Status.notYet     ) => availableCredit
       case ( AccType.credit,  BoS.sell, Contracts.Status.impossible ) => availableCredit
-    }
-  }
-
-  private[user] def calcLoan( contract: Contract ): BigDecimal = {
-
-    val commitPrice = contract.price * contract.volume
-
-    ( contract.account, contract.bos, contract.status, contract.sol ) match {
-      case ( AccType.cash,    _,        _,                           _         ) => loan
-      case ( AccType.credit,  _,        Contracts.Status.notYet,     _         ) => loan
-      case ( AccType.credit,  _,        Contracts.Status.impossible, _         ) => loan
-
-      case ( AccType.credit,  BoS.buy,  Contracts.Status.done,       _         ) => loan + commitPrice
-      case ( AccType.credit,  BoS.sell, Contracts.Status.done,       _         ) => loan - commitPrice
     }
   }
 
@@ -139,6 +127,7 @@ case class Account(
   }
   private def findStock( market: String, code: String, sol: SoL ): Option[Holding] =
     holdings.find( h => h.market == market && h.code == code && h.soL == sol )
+
 
 }
 object Account extends SQLSyntaxSupport[Account] {
