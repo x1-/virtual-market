@@ -86,7 +86,7 @@ trait Service extends HttpService {
       get {
         parameters( 'id ) { id =>
           respondWithMediaType( `application/json` ) {
-            complete( Accounts.retrieve( id ).toJson )
+            complete( Accounts.retrieve( id ).reBalance( marketNow ).toJson )
           }
         }
       }
