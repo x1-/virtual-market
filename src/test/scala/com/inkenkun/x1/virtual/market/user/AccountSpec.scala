@@ -77,6 +77,14 @@ class AccountSpec extends Specification {
     "return same cash when Sell and contract.status.impossible" in {
       user.calcAvailableCash( contract.copy( status = Contracts.Status.impossible, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 )
     }
+    "return cash plused profit when Sell and contract.status.done" in {
+      user.calcAvailableCash( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell, account = transaction.Account.credit ) ) must_== BigDecimal( 1000000 + ( -5d * 100 ) )
+    }
+    "return cash plused arbitrage between sold price and buyed price when Sell and contract.status.done" in {
+      user.calcAvailableCash( contract.copy(
+        code = "1333", status = Contracts.Status.done, bos = transaction.BoS.sell, sol = transaction.SoL.short, account = transaction.Account.credit
+      ) ) must_== BigDecimal( 1000000 + ( 200d - 95d ) * 100 )
+    }
   }
 
   "Account.calcAvailableCredit" should {
@@ -117,7 +125,7 @@ class AccountSpec extends Specification {
     }
 
     "return credit plused sold price when Sell and contract.status.done" in {
-      user.calcAvailableCredit( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + ( 95d * 100 ) )
+      user.calcAvailableCredit( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + ( 100d * 100 ) )
     }
     "return same credit when Sell and contract.status.notYet" in {
       user.calcAvailableCredit( contract.copy( status = Contracts.Status.notYet, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 )
@@ -151,92 +159,13 @@ class AccountSpec extends Specification {
     }
 
     "return credit plused arbitrage between sold price and buyed price when Sell and contract.status.done" in {
-      user.calcAvailableCredit( contract2.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + ( 200d - 95d ) * 100 )
+      user.calcAvailableCredit( contract2.copy( code = "1333", status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 + 200d * 100 )
     }
     "return same credit when Sell and contract.status.notYet" in {
       user.calcAvailableCredit( contract2.copy( status = Contracts.Status.notYet, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 )
     }
     "return same credit when Sell and contract.status.impossible" in {
       user.calcAvailableCredit( contract2.copy( status = Contracts.Status.impossible, bos = transaction.BoS.sell ) ) must_== BigDecimal( 1000000 )
-    }
-  }
-
-  "Account.calcLoan" should {
-
-    val contract = Contract (
-      userId     = "111111",
-      market     = "TYO",
-      code       = "1332",
-      account    = transaction.Account.credit,
-      sol        = transaction.SoL.long,
-      how        = transaction.How.limit,
-      price      = 95d,
-      volume     = 100,
-      expiration = marketNow,
-      bos        = transaction.BoS.buy
-    )
-
-    val user = Account(
-      userId     = "111111",
-      userName        = "test",
-      availableCash   = BigDecimal( 1000000 ),
-      availableCredit = BigDecimal( 1000000 ),
-      balance         = BigDecimal( 1000000 ),
-      loan            = BigDecimal( 0 ),
-      holdings        = List( holding1, holding2 ),
-      contracted      = List.empty[Contract],
-      notContracted   = List( contract.copy( status = Contracts.Status.notYet ) )
-    )
-
-    "return 0 when Buy, long and contract.status.notYet" in {
-      user.calcLoan( contract.copy( status = Contracts.Status.notYet ) ) must_== BigDecimal( 0 )
-    }
-    "return 0 when Sell, long and contract.status.notYet" in {
-      user.calcLoan( contract.copy( status = Contracts.Status.notYet, bos = transaction.BoS.sell ) ) must_== BigDecimal( 0 )
-    }
-    "return 95 * 100 when Buy, long, Credit and contract.status.done" in {
-      user.calcLoan( contract.copy( status = Contracts.Status.done ) ) must_== BigDecimal( 95 * 100 )
-    }
-
-
-    val user2 = Account(
-      userId     = "111111",
-      userName        = "test",
-      availableCash   = BigDecimal( 1000000 ),
-      availableCredit = BigDecimal( 1000000 ),
-      balance         = BigDecimal( 1000000 ),
-      loan            = BigDecimal( 9500 ),
-      holdings        = List( holding1, holding2 ),
-      contracted      = List.empty[Contract],
-      notContracted   = List( contract.copy( status = Contracts.Status.notYet ) )
-    )
-    "return 0 when Sell, Credit and contract.status.done" in {
-      user2.calcLoan( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 0 )
-    }
-    "return -95 * 100 when Sell, Credit and contract.status.done" in {
-      user.calcLoan( contract.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( -95 * 100 )
-    }
-
-
-    /** short */
-    val contract2 = Contract (
-      userId     = "111111",
-      code       = "1332",
-      account    = transaction.Account.credit,
-      sol        = transaction.SoL.short,
-      how        = transaction.How.limit,
-      price      = 95d,
-      volume     = 100,
-      expiration = marketNow,
-      bos        = transaction.BoS.buy,
-      market     = "TYO"
-    )
-
-    "return 95 * 100 when Buy, short and contract.status.done" in {
-      user.calcLoan( contract2.copy( status = Contracts.Status.done ) ) must_== BigDecimal( 95 * 100 )
-    }
-    "return 0 when Sell, short and contract.status.done" in {
-      user2.calcLoan( contract2.copy( status = Contracts.Status.done, bos = transaction.BoS.sell ) ) must_== BigDecimal( 0 )
     }
   }
 
@@ -254,6 +183,15 @@ class AccountSpec extends Specification {
       market     = "TYO",
       status     = Contracts.Status.done
     )
+    val holding3 = Holding(
+      userId = "111111",
+      time   = marketNow,
+      market = "TYO",
+      code   = "1332",
+      price  = BigDecimal(110),
+      volume = 100,
+      soL    = transaction.SoL.short
+    )
     val user = Account(
       userId     = "111111",
       userName        = "test",
@@ -261,7 +199,7 @@ class AccountSpec extends Specification {
       availableCredit = BigDecimal( 1000000 ),
       balance         = BigDecimal( 1000000 ),
       loan            = BigDecimal( 0 ),
-      holdings        = List( holding1, holding2 ),
+      holdings        = List( holding1, holding2, holding3 ),
       contracted      = List.empty[Contract],
       notContracted   = List( contract.copy( status = Contracts.Status.notYet ) )
     )
@@ -269,32 +207,41 @@ class AccountSpec extends Specification {
       val stocks = user.calcHoldings( contract.copy( code = "1335" ) )
       val stock  = stocks.find( _.code == "1335" ).get
 
-      stocks.size  must_== 3
+      stocks.size  must_== 4
       stock.volume must_== 100
       stock.price  must_== BigDecimal( 95d )
     }
     "return average price when adding the same stock by different price." in {
       val stocks = user.calcHoldings( contract )
-      val stock  = stocks.find( _.code == contract.code ).get
+      val stock  = stocks.find( s => s.code == contract.code && s.soL == contract.sol ).get
 
-      stocks.size  must_== 2
+      stocks.size  must_== 3
       stock.volume must_== 300
       stock.price  must_== BigDecimal( ( 100d * 200 + 95 * 100 ) / 300 ).setScale( 3, BigDecimal.RoundingMode.HALF_UP )
     }
     "return redundunt volume when selling the half of the stock ." in {
       val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell ) )
-      val stock  = stocks.find( _.code == contract.code ).get
+      val stock  = stocks.find( s => s.code == contract.code && s.soL == contract.sol ).get
 
-      stocks.size  must_== 2
+      stocks.size  must_== 3
       stock.volume must_== 100
       stock.price  must_== BigDecimal( 100d )
     }
     "return no stock when selling the full of the stock ." in {
       val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell, volume = 200 ) )
-      val stock  = stocks.find( _.code == contract.code )
+      val stock  = stocks.find( s => s.code == contract.code && s.soL == contract.sol )
 
-      stocks.size  must_== 1
+      stocks.size  must_== 2
       stock must beNone
+    }
+    "return only the short stocks when selling the stocks of long." in {
+      val stocks = user.calcHoldings( contract.copy( bos = transaction.BoS.sell, volume = 200 ) )
+      val stock  = stocks.find( s => s.code == contract.code ).get
+
+      stocks.size  must_== 2
+      stock.soL must_== transaction.SoL.short
+      stock.volume must_== 100
+      stock.price  must_== BigDecimal( 110d )
     }
   }
 
@@ -313,27 +260,35 @@ class AccountSpec extends Specification {
         123400L
       )
     )
+    Candles.candles1d += "1333" -> Vector(
+      Candle(
+        timestampFormat.parseDateTime( "2016-01-01 00:00:00" ).toDate,
+        "TYO",
+        "1333",
+        BigDecimal( 500 ),
+        BigDecimal( 500 ),
+        BigDecimal( 500 ),
+        BigDecimal( 500 ),
+        123400L
+      )
+    )
+
     val user = Account(
       userId     = "111111",
       userName        = "test",
-      availableCash   = BigDecimal( 1000000 ),
-      availableCredit = BigDecimal( 3000000 ),
-      balance         = BigDecimal( 1000000 ),
+      availableCash   = BigDecimal( 2980000 ),
+      availableCredit = BigDecimal( 5960000 ),
+      balance         = BigDecimal( 0 ),
       loan            = BigDecimal( 0 ),
       holdings        = List( holding1, holding2 ),
       contracted      = List.empty[Contract],
       notContracted   = List.empty[Contract]
     )
-    "return 100,000 + 1000,000 when close is 500 yen and has 200 number." in {
+    "return 100,000 + 1000,000 when close of 1332 and 1333 are 500 yen." in {
+      val profitLong  = ( 500 - 100 ) * 200
+      val profitShort = ( 200 - 500 ) * 200
       val newUser = user.reBalance( now )
-      newUser.balance must_== 1000000 + ( 500 * 200 )
-    }
-    "return 100,000 + 1000,000 + 5000 when close is 500 yen and has 200 number and loan is minus 5,000." in {
-      val newUser = user.copy( loan = BigDecimal( -5000 ) ).reBalance( now )
-      newUser.balance       must_== 1000000 + ( 500 * 200 ) + 5000
-      newUser.loan          must_== BigDecimal(0)
-      newUser.availableCash must_== 1000000 + 5000
-      
+      newUser.balance must_== ( 200 * 200 ) + ( 100 * 200 ) + profitLong + profitShort + ( user.availableCash + user.availableCredit ) - 9000000
     }
   }
 
