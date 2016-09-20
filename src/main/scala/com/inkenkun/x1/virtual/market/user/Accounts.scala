@@ -16,7 +16,7 @@ case class Account(
   userName        : String = "",
   availableCash   : BigDecimal = BigDecimal( 3000000 ),
   availableCredit : BigDecimal = BigDecimal( 6000000 ),
-  balance         : BigDecimal = BigDecimal( 3000000 ),
+  balance         : BigDecimal = BigDecimal( 0 ),
   loan            : BigDecimal = BigDecimal( 0 ),
   holdings        : List[Holding] = List.empty[Holding],
   contracted      : List[Contract] = List.empty[Contract],
@@ -29,13 +29,9 @@ case class Account(
       val stock = Candles.latest( holding.code, now.toDate )
       acc + stock.fold( BigDecimal(0) )( s => s.close * holding.volume )
     }
-    val cash = if ( loan < 0 ) availableCash - loan else availableCash
-    val adv  = if ( loan < 0 ) BigDecimal(0) else loan
 
     this.copy(
-      availableCash = cash,
-      balance       = performance + cash,
-      loan          = adv
+      balance = ( performance + availableCash + availableCredit ) - 9000000
     )
   }
 
@@ -43,39 +39,48 @@ case class Account(
   private[user] def calcAvailableCash( contract: Contract ): BigDecimal = {
 
     val commitPrice = contract.price * contract.volume
+    val maybeStock  = findStock( contract.market, contract.code, contract.sol )
 
-    ( contract.account, contract.bos, contract.status, contract.sol ) match {
-      case ( AccType.credit, _,        _,                           _          ) => availableCash
-      case ( AccType.cash,   BoS.buy,  Contracts.Status.done,       SoL.long   ) => availableCash
-      case ( AccType.cash,   BoS.buy,  Contracts.Status.notYet,     SoL.long   ) => availableCash - commitPrice
-      case ( AccType.cash,   BoS.buy,  Contracts.Status.impossible, SoL.long   ) => availableCash + commitPrice
+    ( contract.account, contract.bos, contract.status ) match {
+      case ( AccType.cash,   BoS.buy,  Contracts.Status.done        ) => availableCash
+      case ( AccType.cash,   BoS.buy,  Contracts.Status.notYet      ) => availableCash - commitPrice
+      case ( AccType.cash,   BoS.buy,  Contracts.Status.impossible  ) => availableCash + commitPrice
 
-      case ( AccType.cash,   BoS.sell, Contracts.Status.done,       SoL.long   ) => availableCash + commitPrice
-      case ( AccType.cash,   BoS.sell, Contracts.Status.notYet,     _          ) => availableCash
-      case ( AccType.cash,   BoS.sell, Contracts.Status.impossible, _          ) => availableCash
+      case ( AccType.cash,   BoS.sell, Contracts.Status.done        ) => availableCash + commitPrice
+      case ( AccType.cash,   BoS.sell, Contracts.Status.notYet      ) => availableCash
+      case ( AccType.cash,   BoS.sell, Contracts.Status.impossible  ) => availableCash
 
+      case ( AccType.credit, BoS.sell, Contracts.Status.done        ) => maybeStock match {
+        case Some( stock ) =>
+          val profit = if ( contract.sol == SoL.long )
+            commitPrice - ( stock.price * contract.volume )
+          else
+            ( stock.price * contract.volume ) - commitPrice
+          availableCash + profit
+        case None => availableCash
+      }
+      case ( AccType.credit, _,        _                            ) => availableCash
     }
   }
 
   private[user] def calcAvailableCredit( contract: Contract ): BigDecimal = {
 
     val commitPrice = contract.price * contract.volume
-    val maybeStock  = findStock( contract.market, contract.code )
+    val maybeStock  = findStock( contract.market, contract.code, contract.sol )
 
-    ( contract.account, contract.bos, contract.status, contract.sol ) match {
-      case ( AccType.cash,    _,        _,                           _         ) => availableCredit
-      case ( AccType.credit,  BoS.buy,  Contracts.Status.done,       _         ) => availableCredit
-      case ( AccType.credit,  BoS.buy,  Contracts.Status.notYet,     _         ) => availableCredit - commitPrice
-      case ( AccType.credit,  BoS.buy,  Contracts.Status.impossible, _         ) => availableCredit + commitPrice
+    ( contract.account, contract.bos, contract.status ) match {
+      case ( AccType.cash,    _,        _                           ) => availableCredit
+      case ( AccType.credit,  BoS.buy,  Contracts.Status.done       ) => availableCredit
+      case ( AccType.credit,  BoS.buy,  Contracts.Status.notYet     ) => availableCredit - commitPrice
+      case ( AccType.credit,  BoS.buy,  Contracts.Status.impossible ) => availableCredit + commitPrice
 
-      case ( AccType.credit,  BoS.sell, Contracts.Status.done,       SoL.long  ) => availableCredit + commitPrice
-      case ( AccType.credit,  BoS.sell, Contracts.Status.done,       SoL.short ) =>
-        val stock    = maybeStock.get
-        val original = stock.price * contract.volume
-        val profit   = original - commitPrice
-        availableCredit + original + profit
-      case ( AccType.credit,  BoS.sell, Contracts.Status.notYet,     _         ) => availableCredit
-      case ( AccType.credit,  BoS.sell, Contracts.Status.impossible, _         ) => availableCredit
+      case ( AccType.credit,  BoS.sell, Contracts.Status.done       ) => maybeStock match {
+        case Some( stock ) =>
+          availableCredit + stock.price * contract.volume
+        case None => availableCredit
+      }
+      case ( AccType.credit,  BoS.sell, Contracts.Status.notYet     ) => availableCredit
+      case ( AccType.credit,  BoS.sell, Contracts.Status.impossible ) => availableCredit
     }
   }
 
@@ -105,7 +110,7 @@ case class Account(
       id     = None
     )
     if ( contract.bos.isBuy && contract.status.isDone ) {
-      val change = findStock( contract.market, contract.code ) match {
+      val change = findStock( contract.market, contract.code, contract.sol ) match {
         case Some( x ) =>
           holding.copy(
             price  = ( ( ( x.price * x.volume ) + ( holding.price * holding.volume ) ) / ( x.volume + holding.volume ) ).setScale( 3, BigDecimal.RoundingMode.HALF_UP ),
@@ -114,10 +119,10 @@ case class Account(
         case None =>
           holding
       }
-      holdings.filterNot( h => h.market == holding.market && h.code == holding.code ) :+ change
+      holdings.filterNot( h => h.market == holding.market && h.code == holding.code && h.soL == holding.soL ) :+ change
     }
     else if ( contract.bos.isSell && contract.status.isDone ) {
-      val change = findStock( holding.market, holding.code ).map { ho =>
+      val change = findStock( holding.market, holding.code, holding.soL ).map { ho =>
         val diff = ho.volume - holding.volume
         if ( diff > 0 ) {
           List( ho.copy(
@@ -132,8 +137,8 @@ case class Account(
     else
       holdings
   }
-  private def findStock( market: String, code: String ): Option[Holding] =
-    holdings.find( h => h.market == market && h.code == code )
+  private def findStock( market: String, code: String, sol: SoL ): Option[Holding] =
+    holdings.find( h => h.market == market && h.code == code && h.soL == sol )
 
 }
 object Account extends SQLSyntaxSupport[Account] {

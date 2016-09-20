@@ -81,14 +81,14 @@ case class Contract (
     if ( sol == SoL.short && account == AccType.cash ) {
       errors += "空売りの買い戻し場合は信用取引を指定してください。"
     }
-    val holding = user.holdings.find( p => p.market == market && p.code == code )
+    val holding = user.holdings.find( p => p.market == market && p.code == code && p.soL == sol )
     holding match {
       case Some( x ) =>
         if ( x.volume < volume ) {
-          errors += s"指定された銘柄の保持株数が売却数より少ないです。保持数: ${x.volume}, 売却数: $volume"
+          errors += s"指定された銘柄の保持株数が売却数より少ないです。保持数: ${x.volume}, 売却数: $volume, Short/Long: $sol"
         }
       case None =>
-        errors += s"指定された銘柄コード: $code を保持していないため売却もしくは買い戻しを行うことができません。"
+        errors += s"指定された銘柄コード: $code を $sol で保持していないため売却もしくは買い戻しを行うことができません。"
     }
     validate ++ errors.toList
   }
